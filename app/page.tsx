@@ -12,7 +12,7 @@ export default function Home() {
           아차사고, 놓치지 않습니다
         </h1>
         <p className="mt-3 max-w-md font-body text-sm text-steel-light">
-          작은 신호가 큰 사고를 막습니다. 역할을 선택해 프로토타입을 확인하세요.
+          작은 신호가 큰 사고를 막습니다. <br />역할을 선택해 프로토타입을 확인하세요.
         </p>
       </div>
 

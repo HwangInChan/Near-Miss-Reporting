@@ -73,8 +73,8 @@ export function DashboardClient() {
   const errorTypeData = useMemo(() => countByHumanError(reports), [reports]);
 
   return (
-    <div className="min-h-dvh bg-ink px-6 py-6">
-      <header className="mb-6 flex items-end justify-between">
+    <div className="min-h-dvh bg-ink px-4 py-5 sm:px-6 sm:py-6">
+      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-body text-xs uppercase tracking-widest text-safety-yellow">
             Safety Command Center
@@ -84,13 +84,13 @@ export function DashboardClient() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <p className="font-body text-sm text-steel-light">
+          <p className="whitespace-nowrap font-body text-sm text-steel-light">
             누적 접수 <span className="text-paper">{reports.length}</span>건
           </p>
           <button
             type="button"
             onClick={() => loadReports()}
-            className="flex items-center gap-1.5 rounded-module border border-steel-hairline bg-ink-softer px-3 py-1.5 font-body text-xs text-steel-light hover:text-paper"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-module border border-steel-hairline bg-ink-softer px-3 py-1.5 font-body text-xs text-steel-light hover:text-paper"
           >
             <RefreshCw className={isRefreshing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
             새로고침
