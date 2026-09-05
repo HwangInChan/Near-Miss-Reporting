@@ -76,7 +76,7 @@ export function HeinrichPyramid({ nearMissCount }: HeinrichPyramidProps) {
         ))}
       </dl>
       <p className="text-center font-body text-xs text-steel-light">
-        현재 아차사고 <span className="text-paper">{nearMissCount}건</span> 기준 <br />통계적으로
+        현재 아차사고 <span className="text-paper">{nearMissCount}건</span> 기준, 통계적으로
         경미 사고 <span className="text-safety-yellow">{projectedMinor}건</span>, 중대재해{" "}
         <span className="text-safety-red">{projectedMajor}건</span>에 상응합니다.
       </p>

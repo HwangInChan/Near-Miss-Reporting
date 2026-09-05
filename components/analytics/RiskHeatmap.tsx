@@ -52,7 +52,7 @@ export function RiskHeatmap({ cells }: RiskHeatmapProps) {
               <span className="text-paper">{hovered.count}건</span>
             </>
           ) : (
-            "구역에 마우스를 올리면 상세 건수가 표시됩니다."
+            "구역에 마우스를 올리면 상세 건수가 표시됩니다"
           )}
         </p>
         <div className="flex items-center gap-3 text-[10px] text-steel-light">
