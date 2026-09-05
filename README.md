@@ -1,0 +1,165 @@
+# 아차사고(Near-miss) & 인적 오류 리포팅 웹앱 — 프로토타입
+
+현장 작업자가 아차사고를 3초 만에 보고하고, 안전 관리자가 인적 오류를 태깅해
+하인리히 1:29:300 법칙 기반으로 중대재해를 예측/예방하는 프로토타입입니다.
+
+**v0.2 업데이트**: 이제 SQLite DB(파일 하나짜리 임베디드 DB)와 연동되어,
+작업자 화면에서 제출한 리포트가 관리자 대시보드에 실제로 반영됩니다.
+관리자는 "조치완료"를 다시 눌러 처리 상태를 번복할 수도 있습니다.
+
+## 빠른 시작
+
+```bash
+npm install       # better-sqlite3 등 의존성 설치 (네이티브 모듈 포함)
+npm run db:seed   # DB가 비어있으면 90건의 더미 데이터로 초기화
+npm run dev
+```
+
+- `http://localhost:3000` — 랜딩(역할 선택)
+- `http://localhost:3000/report` — 작업자 모바일 리포팅 화면 (제출 시 실제 DB에 저장)
+- `http://localhost:3000/dashboard` — 안전 관리자 대시보드 (DB에서 실시간으로 조회)
+
+## DB는 어떻게 되어 있나요?
+
+- **엔진**: SQLite (better-sqlite3). 별도 DB 서버 설치·구동이 필요 없는 파일 기반 DB입니다.
+- **파일 위치**: `data/near-miss.db` (첫 실행 시 자동 생성, `.gitignore`에 포함되어 저장소에는 올라가지 않습니다)
+- **직접 관리하는 방법**: 무료 GUI 툴인 [DB Browser for SQLite](https://sqlitebrowser.org)로
+  `data/near-miss.db` 파일을 열면, 엑셀처럼 테이블을 보고 행을 직접 추가/수정/삭제할 수 있습니다.
+  서버를 끄고 켜도 데이터는 그대로 유지됩니다.
+- **DB 파일 경로를 바꾸고 싶다면**: 환경변수 `DB_FILE_PATH`를 지정하세요.
+  (`DB_FILE_PATH=/some/path/near-miss.db npm run dev`)
+
+### 데이터 초기화하기
+
+```bash
+npm run db:seed         # DB가 비어있을 때만 90건 시드 (이미 데이터가 있으면 건너뜀)
+npm run db:seed:force   # 기존 데이터를 모두 지우고 90건으로 새로 시드
+```
+
+## API 엔드포인트
+
+| Method | 경로 | 설명 |
+| --- | --- | --- |
+| GET | `/api/reports` | 전체 리포트 조회 (최신순) |
+| POST | `/api/reports` | 새 아차사고 등록 (작업자 화면에서 호출) — `{ zoneId, transcript, photoAttached }` |
+| PATCH | `/api/reports/:id` | 상태/인적오류/배후요인 수정 — `{ status?, humanErrorType?, contributingFactors? }` |
+
+## 이번에 추가된 기능
+
+1. **조치완료 번복**: 관리자 대시보드 상세 패널의 버튼이 토글 방식으로 바뀌었습니다.
+   "조치완료 처리"를 누르면 완료 처리되고, 완료된 상태에서 같은 버튼("조치완료 번복하기")을
+   다시 누르면 "분석중" 상태로 되돌아갑니다. 이때 이미 태깅해둔 인적오류/배후요인은 유지됩니다.
+   (`lib/utils.ts`의 `toggleResolvedStatus()`)
+2. **작업자 → 관리자 실시간 반영**: 작업자 화면에서 제출하면 `POST /api/reports`로 DB에 즉시
+   저장되고, 관리자 대시보드는 8초마다 자동으로 목록을 다시 불러옵니다(폴링). 화면 우측 상단의
+   "새로고침" 버튼으로 즉시 갱신할 수도 있습니다.
+   실제 운영 환경에서는 폴링 대신 웹소켓/Server-Sent Events로 바꾸는 것을 권장합니다.
+
+## 폴더 구조
+
+```
+app/
+  page.tsx                랜딩 페이지
+  report/page.tsx          작업자 리포팅 페이지
+  dashboard/page.tsx       관리자 대시보드 페이지
+  api/reports/route.ts     GET(목록) · POST(신규 등록)
+  api/reports/[id]/route.ts PATCH(상태/태깅 수정, 조치완료 토글 포함)
+  layout.tsx / globals.css
+
+components/
+  report/                 작업자 화면 컴포넌트 (ReportForm이 /api/reports로 제출)
+  dashboard/              관리자 대시보드 컴포넌트 (DashboardClient가 DB를 폴링)
+  analytics/              하인리히 피라미드 · 임계점 위젯 · 히트맵 · 도넛 차트
+  common/                 Badge, PanelCard
+
+lib/
+  types.ts                도메인 타입 (단일 진실 공급원)
+  constants.ts             컬러 토큰 · 구역 · 임계치 상수
+  utils.ts                 공통 유틸 — className, 집계 함수, 하인리히 계산,
+                            그리고 fetchReports/submitReport/patchReport 등
+                            프런트엔드용 API 클라이언트 함수까지 전부 여기 하나로 통합
+  db.ts                    SQLite 커넥션 싱글턴 + 스키마 생성 (서버 전용)
+  reportRepository.ts      DB CRUD 함수 (Repository 패턴, 서버 전용)
+  dummyData.ts             시드용 더미 데이터 생성기 (seed 고정 PRNG)
+
+scripts/
+  seed.ts                  DB 초기 데이터 삽입 스크립트
+
+data/
+  near-miss.db             SQLite DB 파일 (자동 생성, git에는 포함 안 됨)
+```
+
+## 음성 인식은 이제 진짜로 동작합니다
+
+작업자 화면의 마이크 버튼은 브라우저 내장 **Web Speech API**를 사용합니다
+(`lib/useSpeechRecognition.ts`). 별도 API 키나 서버 비용 없이, 실제로 말한 내용이
+한국어로 인식되어 텍스트 칸에 채워집니다.
+
+- **지원 브라우저**: Chrome, Edge (Chromium 계열). Firefox·Safari는 지원하지 않으며,
+  이 경우 자동으로 "이 브라우저는 음성 인식을 지원하지 않아요" 안내가 뜨고 직접 입력
+  칸으로 전환됩니다.
+- **HTTPS 필요**: 브라우저 보안 정책상 `localhost` 또는 HTTPS 환경에서만 동작합니다.
+  Render에 배포하면 자동으로 HTTPS가 적용되므로 문제없습니다.
+- **마이크 권한**: 처음 사용할 때 브라우저가 마이크 권한을 물어봅니다. 거부하면
+  화면에 안내 메시지가 뜹니다.
+- 인식 중에는 실시간으로 중간 결과가 표시되고, 말을 마치면(또는 마이크 버튼을 다시
+  누르면) 확정된 텍스트가 채워지며 이후 자유롭게 수정할 수 있습니다.
+
+### 이미지 인식(사진 속 내용 자동 분석)은 왜 지금 안 넣었나
+
+사진을 실제로 "이해"하려면 Google Cloud Vision, 네이버 Clova OCR, OpenAI Vision API
+같은 유료 클라우드 서비스가 필요하고, 이는 **본인 명의로 가입 후 API 키를 발급받아야만**
+사용할 수 있습니다. 코드만으로 해결할 수 있는 부분이 아니라 이번에는 넣지 않았습니다.
+나중에 API 키를 발급받으시면, `components/report/PhotoUploader.tsx`에서 사진을
+업로드하는 지점에 해당 API 호출을 추가하는 방식으로 붙일 수 있습니다.
+
+## 배포하기 (Git + Render.com, 무료)
+
+이 프로젝트는 Render.com의 무료 Web Service로 바로 배포할 수 있습니다.
+Render는 (Vercel 같은 서버리스와 달리) 앱을 항상 켜져 있는 일반 서버 컨테이너로 실행하기
+때문에, 지금 쓰고 있는 SQLite(`better-sqlite3`)가 로컬과 똑같이 그대로 동작합니다.
+
+**참고**: 무료 Web Service는 15분 동안 요청이 없으면 잠들고, 다음 요청에서 다시 깨어나며
+이때 컨테이너가 새로 시작되어 DB 파일도 초기화됩니다. `lib/reportRepository.ts`의
+`ensureSeeded()`가 있어 매번 깨끗한 90건으로 자동 채워지므로 데모용으로는 문제없습니다.
+데이터를 계속 보존하고 싶다면 Render의 유료 Persistent Disk를 web service에 붙이거나,
+DB를 Postgres 같은 외부 관리형 DB로 옮기는 것을 다음 단계로 고려하세요.
+
+1. GitHub에 저장소 만들고 이 코드를 푸시합니다.
+2. https://render.com 에서 GitHub로 로그인 → New + → Web Service → 방금 만든 저장소 선택.
+3. 아래처럼 설정합니다.
+   - Runtime: Node
+   - Build Command: `npm install && npm run build`
+   - Start Command: `npm run start`
+   - Instance Type: Free
+4. Create Web Service를 누르면 빌드/배포가 시작되고, 끝나면 `https://<서비스이름>.onrender.com` 주소가 발급됩니다.
+5. `https://.../report`에서 제출 → `https://.../dashboard`에서 새로고침(또는 8초 후 자동)하면 반영되는 걸 확인할 수 있습니다.
+
+## 트러블슈팅
+
+- **`npm install` 중 better-sqlite3에서 node-gyp 관련 오류가 난다면**: better-sqlite3는
+  주요 플랫폼(Windows/macOS/Linux, x64/arm64)용 사전 컴파일 바이너리를 패키지 안에 이미
+  포함하고 있습니다. 그런데도 설치 스크립트가 굳이 다시 빌드를 시도하다가, 네트워크가
+  제한된 환경(사내망, 샌드박스 등)에서 Node 헤더 다운로드가 막혀 실패하는 경우가 있습니다.
+  이럴 때는 `npm install --ignore-scripts`로 설치하세요 — 빌드 단계를 건너뛰고 이미
+  패키지에 포함된 바이너리를 그대로 사용하기 때문에 정상 동작합니다.
+
+## 알아두면 좋은 것들
+
+- **왜 Prisma 같은 ORM 대신 better-sqlite3를 직접 썼나요?**: 프로토타입 단계에서는 별도 엔진
+  다운로드나 마이그레이션 도구 없이 `npm install`만으로 바로 돌아가는 게 더 중요하다고 판단했습니다.
+  DB 로직은 전부 `lib/reportRepository.ts` 한 파일에 모아뒀기 때문에, 나중에 Prisma나 Postgres로
+  옮기고 싶다면 이 파일의 함수 시그니처(`getAllReports`, `createReport`, `updateReport`)만
+  유지한 채 내부 구현만 교체하면 됩니다.
+- **알려진 보안 이슈**: 현재 Next.js 14.2.x 라인에는 npm audit에서 보고되는 취약점이 일부
+  남아있습니다(대부분 Next 16으로 메이저 업그레이드해야 완전히 해소됨). 로컬 프로토타입
+  용도로는 문제없지만, 실제 서비스에 배포하기 전에는 `npm audit`을 확인하고 최신 안정 버전으로
+  업그레이드하는 것을 권장합니다.
+
+## 다음 단계로 이어가면 좋은 것들
+
+1. 실제 STT(음성 인식) API 연동 — `ReportForm.tsx`의 `MOCK_TRANSCRIPTS` 부분 교체
+2. 폴링 대신 웹소켓/SSE로 실시간 반영 전환
+3. 로그인/권한 분리 (작업자는 제출만, 관리자만 태깅/조치완료 가능하도록)
+4. 히트맵을 실제 공장 도면 이미지 위에 오버레이하는 버전
+5. 조치완료 이력(누가, 언제 상태를 바꿨는지) 로그 테이블 추가
