@@ -6,6 +6,9 @@ import { ArrowLeft, Award, Star } from "lucide-react";
 import { NearMissReport, Worker } from "@/lib/types";
 import { FACTORY_ZONES } from "@/lib/constants";
 import { fetchMyReports, formatRelativeTime, loadStoredWorker } from "@/lib/utils";
+import { getZoneLabel } from "@/lib/i18n";
+import { useLanguage } from "@/lib/useLanguage";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { SeverityBadge, StatusBadge } from "@/components/common/Badge";
 
 /**
@@ -14,6 +17,7 @@ import { SeverityBadge, StatusBadge } from "@/components/common/Badge";
  * 다음 신고로 이어진다는 안전문화 관점에서 추가한 화면이다.
  */
 export function MyReports() {
+  const { lang, setLang, t } = useLanguage();
   const [worker, setWorker] = useState<Worker | null>(null);
   const [reports, setReports] = useState<NearMissReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +33,7 @@ export function MyReports() {
     fetchMyReports(stored.employeeId)
       .then(setReports)
       .catch((err) =>
-        setErrorMessage(err instanceof Error ? err.message : "이력을 불러오지 못했습니다.")
+        setErrorMessage(err instanceof Error ? err.message : t.historyLoadFailed)
       )
       .finally(() => setIsLoading(false));
   }, []);
@@ -39,15 +43,17 @@ export function MyReports() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-ink px-5 pb-8 pt-6">
+      <LanguageSwitcher lang={lang} onChange={setLang} className="mb-4 self-start" />
+
       <header className="mb-5">
         <Link
           href="/report"
           className="mb-3 inline-flex items-center gap-1.5 font-body text-xs text-steel-light hover:text-paper"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          신고 화면으로
+          {t.backToReport}
         </Link>
-        <h1 className="font-display text-3xl tracking-wide text-paper">내 신고 이력</h1>
+        <h1 className="font-display text-3xl tracking-wide text-paper">{t.myReportsTitle}</h1>
         {worker && (
           <p className="mt-1 font-body text-sm text-steel-light">
             {worker.name} ({worker.employeeId})
@@ -57,12 +63,12 @@ export function MyReports() {
 
       {!worker ? (
         <p className="py-16 text-center font-body text-sm text-steel-light">
-          아직 사번이 등록되지 않았습니다.
+          {t.notRegistered}
           <br />
-          신고 화면에서 먼저 본인 확인을 해주세요.
+          {t.registerFirst}
         </p>
       ) : isLoading ? (
-        <p className="py-16 text-center font-body text-sm text-steel-light">불러오는 중…</p>
+        <p className="py-16 text-center font-body text-sm text-steel-light">{t.loading}</p>
       ) : (
         <>
           {errorMessage && (
@@ -74,29 +80,29 @@ export function MyReports() {
           {/* 포상 집계 현황 */}
           <div className="mb-5 grid grid-cols-3 gap-2">
             <div className="flex flex-col items-center rounded-module border border-steel-hairline bg-ink-softer py-3">
-              <span className="font-body text-[11px] text-steel-light">누적 신고</span>
+              <span className="font-body text-[11px] text-steel-light">{t.totalReports}</span>
               <span className="font-display text-2xl text-paper">{reports.length}</span>
             </div>
             <div className="flex flex-col items-center rounded-module border border-steel-hairline bg-ink-softer py-3">
-              <span className="font-body text-[11px] text-steel-light">조치완료</span>
+              <span className="font-body text-[11px] text-steel-light">{t.resolvedReports}</span>
               <span className="font-display text-2xl text-safety-green">{resolvedCount}</span>
             </div>
             <div className="flex flex-col items-center rounded-module border border-steel-hairline bg-ink-softer py-3">
               <span className="flex items-center gap-1 font-body text-[11px] text-steel-light">
                 <Award className="h-3 w-3" />
-                우수 신고
+                {t.exemplaryReports}
               </span>
               <span className="font-display text-2xl text-safety-yellow">{exemplaryCount}</span>
             </div>
           </div>
 
           <p className="mb-4 rounded-module border border-steel-hairline bg-ink-softer px-3 py-2 font-body text-xs text-steel-light">
-            익명으로 제출한 신고는 이 목록과 포상 집계에 포함되지 않습니다.
+            {t.anonymousExcludedNote}
           </p>
 
           {reports.length === 0 ? (
             <p className="py-16 text-center font-body text-sm text-steel-light">
-              아직 기명으로 접수한 신고가 없습니다.
+              {t.noReportsYet}
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -113,7 +119,7 @@ export function MyReports() {
                         {r.isExemplary && (
                           <span className="flex items-center gap-1 rounded-module border border-safety-yellow bg-safety-yellow/10 px-1.5 py-0.5 text-[10px] font-semibold text-safety-yellow">
                             <Star className="h-2.5 w-2.5" />
-                            우수 신고
+                            {t.exemplaryBadge}
                           </span>
                         )}
                       </span>
@@ -123,9 +129,9 @@ export function MyReports() {
                     </div>
                     <p className="mb-2 font-body text-sm text-paper">{r.transcript}</p>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <SeverityBadge severity={r.severity} />
-                      <StatusBadge status={r.status} />
-                      <span className="font-body text-xs text-steel-light">{zone?.label}</span>
+                      <SeverityBadge severity={r.severity} lang={lang} />
+                      <StatusBadge status={r.status} lang={lang} />
+                      <span className="font-body text-xs text-steel-light">{getZoneLabel(lang, r.zoneId, zone?.label ?? r.zoneId)}</span>
                     </div>
                   </li>
                 );

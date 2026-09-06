@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Lang, SPEECH_LANG, getDictionary } from "./i18n";
 
 /**
  * 브라우저 내장 Web Speech API를 감싸는 커스텀 훅.
@@ -50,21 +51,22 @@ declare global {
   }
 }
 
-function describeError(code: string): string {
+function describeError(code: string, lang: Lang): string {
+  const d = getDictionary(lang);
   switch (code) {
     case "not-allowed":
     case "permission-denied":
-      return "마이크 권한이 거부되었습니다. 브라우저 주소창의 자물쇠/카메라 아이콘에서 마이크 권한을 허용해주세요.";
+      return d.errPermission;
     case "no-speech":
-      return "음성이 감지되지 않았습니다. 마이크에 조금 더 가까이서 다시 말씀해주세요.";
+      return d.errNoSpeech;
     case "network":
-      return "네트워크 문제로 음성 인식 서버에 연결하지 못했습니다. 학교/회사 네트워크가 막고 있을 수 있어요. (직접 입력해주세요)";
+      return d.errNetwork;
     case "audio-capture":
-      return "마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.";
+      return d.errAudioCapture;
     case "aborted":
-      return "";
+      return ""; // 사용자가 직접 멈춘 경우는 에러로 취급하지 않는다
     default:
-      return `음성 인식 중 오류가 발생했습니다. (${code}) 직접 입력해주세요.`;
+      return d.errUnknown;
   }
 }
 
@@ -96,7 +98,7 @@ export interface UseSpeechRecognitionResult {
   reset: () => void;
 }
 
-export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecognitionResult {
+export function useSpeechRecognition(lang: Lang = "ko"): UseSpeechRecognitionResult {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -114,7 +116,7 @@ export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecogniti
   const start = useCallback(() => {
     const Ctor = getCtor();
     if (!Ctor) {
-      setError("이 브라우저에서는 음성 인식을 사용할 수 없습니다.");
+      setError(getDictionary(lang).errUnsupported);
       return;
     }
 
@@ -128,11 +130,11 @@ export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecogniti
       recognition = new Ctor();
     } catch (e) {
       console.error("[useSpeechRecognition] SpeechRecognition 생성 실패:", e);
-      setError("음성 인식 초기화에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      setError(getDictionary(lang).errStartFailed);
       return;
     }
 
-    recognition.lang = lang;
+    recognition.lang = SPEECH_LANG[lang];
     recognition.continuous = false;
     recognition.interimResults = true;
 
@@ -156,7 +158,7 @@ export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecogniti
 
     recognition.onerror = (event) => {
       console.error("[useSpeechRecognition] onerror:", event.error);
-      const message = describeError(event.error);
+      const message = describeError(event.error, lang);
       if (message) setError(message);
       setIsListening(false);
     };
@@ -165,9 +167,7 @@ export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecogniti
       setIsListening(false);
       setInterimTranscript("");
       if (!receivedAnyResultRef.current) {
-        setError(
-          "음성을 인식하지 못했습니다. 네트워크 상태를 확인하시거나 아래 칸에 직접 입력해주세요."
-        );
+        setError(getDictionary(lang).errNoResult);
       }
     };
 
@@ -181,7 +181,7 @@ export function useSpeechRecognition(lang: string = "ko-KR"): UseSpeechRecogniti
       setIsListening(true);
     } catch (e) {
       console.error("[useSpeechRecognition] start() 실패:", e);
-      setError("음성 인식을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      setError(getDictionary(lang).errStartFailed);
       setIsListening(false);
     }
   }, [lang]);

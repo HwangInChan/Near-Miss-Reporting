@@ -1,8 +1,9 @@
 import { Severity } from "@/lib/types";
 import { SEVERITY_COLOR } from "@/lib/constants";
+import { Lang, translateSeverity, translateStatus } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-export function SeverityBadge({ severity }: { severity: Severity }) {
+export function SeverityBadge({ severity, lang = "ko" }: { severity: Severity; lang?: Lang }) {
   const c = SEVERITY_COLOR[severity];
   return (
     <span
@@ -17,12 +18,12 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
         className="h-1.5 w-1.5 rounded-full"
         style={{ backgroundColor: c.text }}
       />
-      {c.label}
+      {translateSeverity(lang, severity)}
     </span>
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, lang = "ko" }: { status: string; lang?: Lang }) {
   const styleMap: Record<string, string> = {
     미분류: "text-steel-light border-steel-light bg-steel-light/10",
     분석중: "text-safety-yellow border-safety-yellow bg-safety-yellow/10",
@@ -35,7 +36,7 @@ export function StatusBadge({ status }: { status: string }) {
         styleMap[status] ?? styleMap["미분류"]
       )}
     >
-      {status}
+      {translateStatus(lang, status)}
     </span>
   );
 }

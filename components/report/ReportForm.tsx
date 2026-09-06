@@ -9,6 +9,8 @@ import { LocationSelect } from "./LocationSelect";
 import { SuccessOverlay } from "./SuccessOverlay";
 import { WorkerRegistration, WorkerBar } from "./WorkerIdentity";
 import { Worker } from "@/lib/types";
+import { useLanguage } from "@/lib/useLanguage";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import {
   submitReport,
   loadStoredWorker,
@@ -20,6 +22,8 @@ import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 type SubmitState = "idle" | "submitting" | "done" | "error";
 
 export function ReportForm() {
+  const { lang, setLang, t } = useLanguage();
+
   const {
     isSupported: speechSupported,
     isListening,
@@ -29,7 +33,7 @@ export function ReportForm() {
     start: startListening,
     stop: stopListening,
     reset: resetSpeech,
-  } = useSpeechRecognition("ko-KR");
+  } = useSpeechRecognition(lang);
 
   // 이 기기에 기억된 작업자. null이면 사번 등록 화면을 먼저 보여준다.
   const [worker, setWorker] = useState<Worker | null>(null);
@@ -110,7 +114,7 @@ export function ReportForm() {
       }, 2200);
     } catch (err) {
       setSubmitState("error");
-      setErrorMessage(err instanceof Error ? err.message : "제출 중 오류가 발생했습니다.");
+      setErrorMessage(err instanceof Error ? err.message : t.submitFailed);
     }
   }
 
@@ -126,47 +130,52 @@ export function ReportForm() {
     setWorker(null);
   }
 
-  // localStorage를 읽기 전에는 아무것도 렌더링하지 않는다.
-  // (서버 렌더링 결과와 어긋나 화면이 깜빡이는 것을 막기 위함)
-  if (!isWorkerLoaded) return null;
+  // localStorage는 브라우저에만 있으므로 서버 렌더링 시점에는 등록 여부를 알 수 없다.
+  // 이때 null을 반환하면 화면이 통째로 백지가 되므로, 최소한의 로딩 표시를 둔다.
+  if (!isWorkerLoaded) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-ink">
+        <p className="font-body text-sm text-steel-light">{t.loading}</p>
+      </div>
+    );
+  }
 
   if (!worker) {
-    return <WorkerRegistration onRegistered={handleRegistered} />;
+    return <WorkerRegistration onRegistered={handleRegistered} lang={lang} onLangChange={setLang} />;
   }
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-ink px-5 pb-8 pt-6">
-      <SuccessOverlay visible={submitState === "done"} reportId={lastReportId} />
+      <SuccessOverlay visible={submitState === "done"} reportId={lastReportId} lang={lang} />
 
-      <WorkerBar worker={worker} onChange={handleChangeWorker} />
+      <LanguageSwitcher lang={lang} onChange={setLang} className="mb-3 self-start" />
+
+      <WorkerBar worker={worker} onChange={handleChangeWorker} lang={lang} />
 
       <header className="mb-2 flex items-start justify-between gap-3">
         <div>
           <p className="font-body text-xs uppercase tracking-widest text-safety-yellow">
-            아차사고 신고
+            {t.appEyebrow}
           </p>
-          <h1 className="font-display text-3xl tracking-wide text-paper">
-            지금 본 위험, 3초면 됩니다
-          </h1>
+          <h1 className="font-display text-3xl tracking-wide text-paper">{t.reportTitle}</h1>
         </div>
         <Link
           href="/my-reports"
           className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-module border border-steel-hairline bg-ink-softer px-3 py-2 font-body text-xs text-steel-light hover:text-paper"
         >
           <History className="h-3.5 w-3.5" />
-          내 신고 이력
+          {t.myReports}
         </Link>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-6">
         {speechSupported ? (
-          <MicButton isRecording={isListening} onToggle={handleMicToggle} />
+          <MicButton isRecording={isListening} onToggle={handleMicToggle} lang={lang} />
         ) : (
           <div className="flex flex-col items-center gap-2 rounded-module border-2 border-steel bg-ink-softer p-5 text-center">
-            <p className="font-display text-lg text-paper">이 브라우저는 음성 인식을 지원하지 않아요</p>
+            <p className="font-display text-lg text-paper">{t.micUnsupportedTitle}</p>
             <p className="max-w-[260px] font-body text-sm text-steel-light">
-              Chrome 또는 Edge 브라우저로 열어주시면 음성으로 바로 신고할 수 있습니다. 지금은 아래
-              칸에 직접 입력해주세요.
+              {t.micUnsupportedDesc}
             </p>
           </div>
         )}
@@ -182,12 +191,12 @@ export function ReportForm() {
              음성 인식이 안 되는 환경에서 수기 입력이 아예 불가능했다.) */}
         <div className="w-full rounded-module border-2 border-steel bg-ink-softer p-4">
           <p className="mb-1 font-body text-xs text-steel-light">
-            신고 내용 {speechSupported ? "(음성 인식 또는 직접 입력)" : "(직접 입력)"}
+            {t.reportContent} {speechSupported ? t.viaVoiceOrType : t.viaTypeOnly}
           </p>
           <textarea
             value={editedTranscript}
             onChange={(e) => setEditedTranscript(e.target.value)}
-            placeholder="마이크로 말하거나, 여기에 직접 입력하세요"
+            placeholder={t.contentPlaceholder}
             rows={3}
             className="w-full resize-none bg-transparent font-body text-base text-paper outline-none placeholder:text-steel-light"
           />
@@ -195,7 +204,7 @@ export function ReportForm() {
               그래야 사용자가 타이핑 중인 내용을 덮어쓰지 않는다. */}
           {isListening && interimTranscript && (
             <p className="mt-2 border-t border-steel-hairline pt-2 font-body text-sm text-steel-light">
-              인식 중… {interimTranscript}
+              {t.recognizing} {interimTranscript}
             </p>
           )}
         </div>
@@ -208,8 +217,8 @@ export function ReportForm() {
       )}
 
       <div className="flex flex-col gap-3">
-        <LocationSelect value={zoneId} onChange={setZoneId} />
-        <PhotoUploader onChange={setPhoto} />
+        <LocationSelect value={zoneId} onChange={setZoneId} lang={lang} />
+        <PhotoUploader onChange={setPhoto} lang={lang} />
 
         {/* 익명 신고 토글.
             익명으로 내면 사번이 저장되지 않아 포상 집계에서 빠진다는 점을
@@ -230,12 +239,10 @@ export function ReportForm() {
           <span className="flex flex-col gap-0.5">
             <span className="flex items-center gap-1.5 font-body text-base text-paper">
               <EyeOff className="h-4 w-4" />
-              이번 건은 익명으로 신고
+              {t.anonymousLabel}
             </span>
             <span className="font-body text-xs text-steel-light">
-              {isAnonymous
-                ? "사번이 저장되지 않습니다. 포상 집계에서 제외됩니다."
-                : "말하기 껄끄러운 내용이라면 익명으로 낼 수 있습니다 (포상 집계 제외)."}
+              {isAnonymous ? t.anonymousOn : t.anonymousOff}
             </span>
           </span>
         </label>
@@ -246,7 +253,7 @@ export function ReportForm() {
           onClick={handleSubmit}
           className="mt-2 rounded-module bg-safety-green py-5 font-display text-xl tracking-wide text-ink transition-opacity disabled:opacity-30 active:scale-[0.98]"
         >
-          {submitState === "submitting" ? "제출 중…" : "제출하기"}
+          {submitState === "submitting" ? t.submitting : t.submit}
         </button>
       </div>
     </div>
