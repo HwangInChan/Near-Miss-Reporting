@@ -1,30 +1,28 @@
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
-import Database from "better-sqlite3";
+import { createClient, type Client } from "@libsql/client";
 
 /**
- * SQLite 커넥션 (지연 초기화 싱글턴).
+ * DB 커넥션 (지연 초기화 싱글턴).
  *
- * 중요: DB 파일은 "모듈을 import하는 시점"이 아니라 "실제로 쿼리를 실행하는 시점"에
- * 처음 열린다. 예전처럼 모듈 최상위에서 곧바로 커넥션을 만들면, Next.js가 빌드 중
- * 여러 워커 프로세스를 병렬로 띄워 각 API 라우트를 로드할 때 같은 DB 파일을 동시에
- * 열고 PRAGMA/ALTER TABLE을 실행해 SQLITE_BUSY로 빌드가 실패한다.
- * (Render 배포 중 "Failed to collect page data for /api/workers" 오류의 원인)
+ * libSQL 클라이언트 하나로 두 가지 모드를 모두 지원한다.
+ *  - 로컬 개발: file:./data/near-miss.db  (Turso 계정 없이 그대로 동작)
+ *  - 배포:      libsql://... (Turso 원격 DB)
+ * 코드는 동일하고 환경변수만 바꾸면 되므로, 로컬에서 개발한 그대로 배포된다.
  *
- * - DB 파일은 기본적으로 프로젝트 루트의 data/near-miss.db 에 저장된다
- *   (환경변수 DB_FILE_PATH로 명시적으로 바꿀 수 있다).
- * - 호스팅 환경에 따라 이 경로에 쓰기 권한이 없을 수 있으므로, 쓰기가 불가능하면
- *   자동으로 OS 임시 폴더로 대체한다.
- * - 파일 하나로 동작하는 임베디드 DB이므로 별도의 DB 서버 설치/구동이 필요 없다.
- *   DB Browser for SQLite(https://sqlitebrowser.org) 같은 무료 GUI로 열어볼 수 있다.
+ * 환경변수
+ *  - TURSO_DATABASE_URL : 설정하면 이 주소를 사용한다. 없으면 로컬 파일.
+ *  - TURSO_AUTH_TOKEN   : 원격 DB일 때 필요한 인증 토큰.
+ *  - DB_FILE_PATH       : 로컬 파일 경로를 직접 지정하고 싶을 때.
+ *
+ * 중요: 스키마 생성/마이그레이션은 "모듈 import 시점"이 아니라 "첫 쿼리 시점"에
+ * 딱 한 번 실행된다. import만으로 DB에 접속하면, Next.js가 빌드 중 여러 워커를
+ * 병렬로 띄워 라우트를 로드할 때 동시 접속으로 실패한다.
  */
 
-function resolveDbFilePath(): string {
-  if (process.env.DB_FILE_PATH) {
-    // 명시적으로 지정된 경로는 그대로 신뢰한다.
-    return process.env.DB_FILE_PATH;
-  }
+function resolveLocalFilePath(): string {
+  if (process.env.DB_FILE_PATH) return process.env.DB_FILE_PATH;
 
   const preferredDir = path.join(process.cwd(), "data");
   try {
@@ -37,95 +35,99 @@ function resolveDbFilePath(): string {
   }
 }
 
+function resolveConnection(): { url: string; authToken?: string } {
+  const remote = process.env.TURSO_DATABASE_URL;
+  if (remote) {
+    return { url: remote, authToken: process.env.TURSO_AUTH_TOKEN };
+  }
+  return { url: `file:${resolveLocalFilePath()}` };
+}
+
 declare global {
   // eslint-disable-next-line no-var
-  var __nearMissDb: Database.Database | undefined;
+  var __nearMissClient: Client | undefined;
+  // eslint-disable-next-line no-var
+  var __nearMissInit: Promise<Client> | undefined;
 }
 
-function createConnection(): Database.Database {
-  const db = new Database(resolveDbFilePath());
-
-  // 다른 프로세스가 DB를 쓰고 있으면 즉시 실패하지 않고 최대 5초까지 기다린다.
-  // (빌드 중 병렬 워커가 겹칠 때 SQLITE_BUSY로 죽는 것을 막는 안전장치)
-  db.pragma("busy_timeout = 5000");
-  db.pragma("journal_mode = WAL");
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS reports (
-      id TEXT PRIMARY KEY,
-      created_at TEXT NOT NULL,
-      zone_id TEXT NOT NULL,
-      reporter_alias TEXT NOT NULL,
-      transcript TEXT NOT NULL,
-      photo_attached INTEGER NOT NULL DEFAULT 0,
-      severity TEXT NOT NULL CHECK (severity IN ('low','medium','high')),
-      status TEXT NOT NULL CHECK (status IN ('미분류','분석중','조치완료')) DEFAULT '미분류',
-      human_error_type TEXT,
-      contributing_factors TEXT NOT NULL DEFAULT '[]'
-    );
-
-    CREATE TABLE IF NOT EXISTS workers (
-      employee_id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
-    /*
-     * 첨부 사진.
-     * reports와 1:1이지만 일부러 별도 테이블로 분리했다. 같은 테이블에 두면
-     * "SELECT * FROM reports"로 목록을 읽을 때마다 수십 건의 이미지 바이트가
-     * 통째로 메모리에 딸려온다. 사진은 상세 화면에서 한 건씩만 필요하다.
-     */
-    CREATE TABLE IF NOT EXISTS report_photos (
-      report_id TEXT PRIMARY KEY,
-      mime_type TEXT NOT NULL,
-      data BLOB NOT NULL,
-      byte_size INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
-    );
-  `);
-
-  migrate(db);
-
-  return db;
-}
+const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS reports (
+     id TEXT PRIMARY KEY,
+     created_at TEXT NOT NULL,
+     zone_id TEXT NOT NULL,
+     reporter_alias TEXT NOT NULL,
+     transcript TEXT NOT NULL,
+     photo_attached INTEGER NOT NULL DEFAULT 0,
+     severity TEXT NOT NULL CHECK (severity IN ('low','medium','high')),
+     status TEXT NOT NULL CHECK (status IN ('미분류','분석중','조치완료')) DEFAULT '미분류',
+     human_error_type TEXT,
+     contributing_factors TEXT NOT NULL DEFAULT '[]'
+   )`,
+  `CREATE TABLE IF NOT EXISTS workers (
+     employee_id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   )`,
+  /*
+   * 첨부 사진.
+   * reports와 1:1이지만 일부러 별도 테이블로 분리했다. 같은 테이블에 두면
+   * 목록 조회 때마다 수십 건의 이미지 바이트가 통째로 딸려온다.
+   * 사진은 상세 화면에서 한 건씩만 필요하다.
+   */
+  `CREATE TABLE IF NOT EXISTS report_photos (
+     report_id TEXT PRIMARY KEY,
+     mime_type TEXT NOT NULL,
+     data BLOB NOT NULL,
+     byte_size INTEGER NOT NULL,
+     created_at TEXT NOT NULL
+   )`,
+];
 
 /**
- * 기존에 만들어진 DB 파일에도 새로 추가된 컬럼을 자동으로 채워 넣는다.
- * (이미 데이터가 쌓인 data/near-miss.db를 지우지 않고 그대로 쓸 수 있게 하기 위함)
- * SQLite는 컬럼 추가에 "IF NOT EXISTS"를 지원하지 않으므로, 현재 컬럼 목록을
- * 조회해서 없는 것만 ALTER TABLE로 추가한다.
+ * 기존 DB에도 새로 추가된 컬럼을 채워 넣는다.
+ * SQLite는 컬럼 추가에 IF NOT EXISTS를 지원하지 않으므로,
+ * 현재 컬럼 목록을 조회해 없는 것만 ALTER TABLE로 추가한다.
  */
-function migrate(db: Database.Database): void {
-  const columns = db
-    .prepare<[], { name: string }>("PRAGMA table_info(reports)")
-    .all()
-    .map((c) => c.name);
+const MIGRATIONS: Record<string, string> = {
+  employee_id: "ALTER TABLE reports ADD COLUMN employee_id TEXT",
+  is_anonymous: "ALTER TABLE reports ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0",
+  is_exemplary: "ALTER TABLE reports ADD COLUMN is_exemplary INTEGER NOT NULL DEFAULT 0",
+};
 
-  const additions: Record<string, string> = {
-    // 신고자 사번. 익명 신고이거나 사번 도입 이전의 과거 데이터면 NULL.
-    employee_id: "ALTER TABLE reports ADD COLUMN employee_id TEXT",
-    // 익명 신고 여부. 익명이면 포상 집계에서 제외된다.
-    is_anonymous: "ALTER TABLE reports ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0",
-    // 관리자가 "중대재해를 예방한 우수 신고"로 표시했는지 여부 (질적 포상용).
-    is_exemplary: "ALTER TABLE reports ADD COLUMN is_exemplary INTEGER NOT NULL DEFAULT 0",
-  };
+async function initialize(): Promise<Client> {
+  const client = createClient(resolveConnection());
 
-  for (const [column, sql] of Object.entries(additions)) {
+  for (const sql of SCHEMA) {
+    await client.execute(sql);
+  }
+
+  const info = await client.execute("PRAGMA table_info(reports)");
+  const columns = info.rows.map((r) => String(r.name));
+  for (const [column, sql] of Object.entries(MIGRATIONS)) {
     if (!columns.includes(column)) {
-      db.exec(sql);
+      await client.execute(sql);
     }
   }
+
+  return client;
 }
 
-/**
- * DB 커넥션을 얻는다. 처음 호출될 때 한 번만 파일을 열고, 이후로는 같은 것을 재사용한다.
- * 개발 모드는 파일 변경 시 모듈을 다시 로드하므로 globalThis에 캐싱해 중복 생성을 막는다.
- */
-export function getDb(): Database.Database {
-  if (!globalThis.__nearMissDb) {
-    globalThis.__nearMissDb = createConnection();
+/** DB 클라이언트를 얻는다. 스키마 준비는 최초 1회만 실행되고 이후 재사용된다. */
+export function getDb(): Promise<Client> {
+  if (globalThis.__nearMissClient) {
+    return Promise.resolve(globalThis.__nearMissClient);
   }
-  return globalThis.__nearMissDb;
+  // 동시에 여러 요청이 들어와도 초기화가 한 번만 돌도록 Promise 자체를 캐싱한다.
+  if (!globalThis.__nearMissInit) {
+    globalThis.__nearMissInit = initialize().then((client) => {
+      globalThis.__nearMissClient = client;
+      return client;
+    });
+  }
+  return globalThis.__nearMissInit;
+}
+
+/** 원격(Turso)에 연결되어 있는지 여부 - 상태 표시나 로그용 */
+export function isRemoteDb(): boolean {
+  return Boolean(process.env.TURSO_DATABASE_URL);
 }

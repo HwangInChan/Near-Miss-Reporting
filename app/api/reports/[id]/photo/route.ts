@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 /** 첨부 사진 원본을 이미지로 그대로 응답한다. <img src="/api/reports/{id}/photo"> 로 사용. */
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const photo = getPhoto(params.id);
+  const photo = await getPhoto(params.id);
   if (!photo) {
     return NextResponse.json({ error: "사진이 없습니다." }, { status: 404 });
   }

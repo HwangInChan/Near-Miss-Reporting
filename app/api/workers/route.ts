@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!employeeId) {
     return NextResponse.json({ error: "employeeId가 필요합니다." }, { status: 400 });
   }
-  const worker = getWorker(employeeId.trim());
+  const worker = await getWorker(employeeId.trim());
   return NextResponse.json({ worker });
 }
 
@@ -42,6 +42,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "이름이 너무 깁니다." }, { status: 400 });
   }
 
-  const worker = registerWorker(employeeId, name);
+  const worker = await registerWorker(employeeId, name);
   return NextResponse.json({ worker }, { status: 201 });
 }

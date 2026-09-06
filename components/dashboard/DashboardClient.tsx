@@ -23,8 +23,14 @@ import { ContributingFactorChart } from "@/components/analytics/ContributingFact
 import { RefreshCw } from "lucide-react";
 
 // 작업자 화면에서 새 리포트가 접수되는 것을 "실시간처럼" 반영하기 위한 폴링 주기.
-// 실제 서비스에서는 웹소켓/SSE로 교체하는 것을 권장한다.
-const POLL_INTERVAL_MS = 8000;
+//
+// 30초로 잡은 이유: 원격 DB(Turso)는 "스캔한 행 수"로 사용량을 계산하는데,
+// 폴링 1회마다 리포트 전체가 여러 번 스캔된다(목록 + 포상 집계 + 배후요인 통계).
+// 8초 간격으로 탭을 종일 켜두면 신고가 1,000건만 쌓여도 무료 한도를 넘긴다.
+// 아차사고 신고는 초 단위 대응이 필요한 성격이 아니므로 30초로 충분하고,
+// 즉시 확인이 필요하면 헤더의 "새로고침" 버튼을 쓰면 된다.
+// 실제 서비스에서는 폴링 대신 웹소켓/SSE로 교체하는 것을 권장한다.
+const POLL_INTERVAL_MS = 30000;
 
 export function DashboardClient() {
   const [reports, setReports] = useState<NearMissReport[]>([]);
@@ -63,9 +69,28 @@ export function DashboardClient() {
 
   useEffect(() => {
     loadReports();
-    // 작업자 화면에서의 신규 제출을 대시보드가 주기적으로 감지하도록 폴링한다.
-    const interval = setInterval(() => loadReports({ silent: true }), POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+
+    // 탭이 화면에 보일 때만 폴링한다. 대시보드는 하루 종일 열어두는 화면이라,
+    // 백그라운드에서까지 계속 조회하면 아무도 보지 않는 데이터를 위해
+    // DB 읽기 사용량만 소모하게 된다.
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadReports({ silent: true });
+      }
+    }, POLL_INTERVAL_MS);
+
+    // 다른 탭에 있다가 돌아오면 곧바로 최신 상태로 맞춘다.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadReports({ silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [loadReports]);
 
   const selectedReport = reports.find((r) => r.id === selectedId) ?? null;

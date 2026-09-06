@@ -21,7 +21,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const existing = getReportById(params.id);
+  const existing = await getReportById(params.id);
   if (!existing) {
     return NextResponse.json({ error: "리포트를 찾을 수 없습니다." }, { status: 404 });
   }
@@ -46,7 +46,7 @@ export async function PATCH(
     return NextResponse.json({ error: "유효하지 않은 severity 값입니다." }, { status: 400 });
   }
 
-  const updated = updateReport(params.id, {
+  const updated = await updateReport(params.id, {
     status: body.status,
     humanErrorType: body.humanErrorType,
     contributingFactors: body.contributingFactors,

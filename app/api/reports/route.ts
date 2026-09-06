@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const employeeId = request.nextUrl.searchParams.get("employeeId");
   const reports = employeeId
-    ? getReportsByEmployee(employeeId.trim())
-    : getAllReports();
+    ? await getReportsByEmployee(employeeId.trim())
+    : await getAllReports();
   return NextResponse.json({ reports });
 }
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     photo = { mimeType: match[1], buffer };
   }
 
-  const report = createReport({
+  const report = await createReport({
     zoneId,
     transcript: transcript.trim(),
     photoAttached: photo !== null,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (photo) {
-    savePhoto(report.id, photo.mimeType, photo.buffer);
+    await savePhoto(report.id, photo.mimeType, photo.buffer);
   }
 
   return NextResponse.json({ report }, { status: 201 });
