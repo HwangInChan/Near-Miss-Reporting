@@ -69,6 +69,21 @@ function createConnection(): Database.Database {
       name TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    /*
+     * 첨부 사진.
+     * reports와 1:1이지만 일부러 별도 테이블로 분리했다. 같은 테이블에 두면
+     * "SELECT * FROM reports"로 목록을 읽을 때마다 수십 건의 이미지 바이트가
+     * 통째로 메모리에 딸려온다. 사진은 상세 화면에서 한 건씩만 필요하다.
+     */
+    CREATE TABLE IF NOT EXISTS report_photos (
+      report_id TEXT PRIMARY KEY,
+      mime_type TEXT NOT NULL,
+      data BLOB NOT NULL,
+      byte_size INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+    );
   `);
 
   migrate(db);

@@ -1,7 +1,7 @@
 "use client";
 
-import { NearMissReport, HumanErrorType, ContributingFactor } from "@/lib/types";
-import { FACTORY_ZONES } from "@/lib/constants";
+import { NearMissReport, HumanErrorType, ContributingFactor, Severity } from "@/lib/types";
+import { FACTORY_ZONES, SEVERITY_COLOR } from "@/lib/constants";
 import { formatDateTime, toggleResolvedStatus } from "@/lib/utils";
 import { SeverityBadge, StatusBadge } from "@/components/common/Badge";
 import { HumanErrorTagger } from "./HumanErrorTagger";
@@ -45,6 +45,10 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
     onUpdate(report!.id, { isExemplary: !report!.isExemplary });
   }
 
+  function setSeverity(severity: Severity) {
+    onUpdate(report!.id, { severity });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* 리포트 원문 */}
@@ -82,6 +86,55 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
               <Camera className="h-3.5 w-3.5" /> 사진 첨부됨
             </span>
           )}
+        </div>
+
+        {report.photoAttached && (
+          <a
+            href={`/api/reports/${report.id}/photo`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 block overflow-hidden rounded-module border border-steel-hairline"
+            title="새 탭에서 원본 보기"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/reports/${report.id}/photo`}
+              alt={`${report.id} 현장 사진`}
+              className="max-h-64 w-full bg-ink object-contain"
+            />
+          </a>
+        )}
+      </div>
+
+      {/* 심각도 조정.
+          접수 시점에는 심각도를 알 수 없어 일괄 "주의"로 저장되므로,
+          관리자가 내용을 확인한 뒤 반드시 조정할 수 있어야 한다. */}
+      <div>
+        <h3 className="mb-2 font-display text-base tracking-wide text-paper">심각도</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {(["low", "medium", "high"] as Severity[]).map((s) => {
+            const c = SEVERITY_COLOR[s];
+            const active = report.severity === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSeverity(s)}
+                className="flex items-center justify-center gap-1.5 rounded-module border-2 py-2 font-body text-sm transition-colors"
+                style={{
+                  borderColor: active ? c.text : "#2A2F34",
+                  backgroundColor: active ? `${c.text}1A` : "#22272C",
+                  color: active ? c.text : "#9AA3AB",
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: active ? c.text : "#9AA3AB" }}
+                />
+                {c.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

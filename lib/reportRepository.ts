@@ -182,6 +182,9 @@ export interface ReportPatch {
   humanErrorType?: HumanErrorType;
   contributingFactors?: ContributingFactor[];
   isExemplary?: boolean;
+  /** 접수 시점에는 심각도를 알 수 없어 medium으로 저장되므로,
+   *  관리자가 내용을 확인한 뒤 조정할 수 있어야 한다. */
+  severity?: Severity;
 }
 
 /** 관리자 대시보드에서의 태깅/상태 변경(조치완료 토글, 우수신고 지정 포함)을 저장한다 */
@@ -195,6 +198,7 @@ export function updateReport(id: string, patch: ReportPatch): NearMissReport | n
     humanErrorType: patch.humanErrorType ?? existing.humanErrorType,
     contributingFactors: patch.contributingFactors ?? existing.contributingFactors,
     isExemplary: patch.isExemplary ?? existing.isExemplary,
+    severity: patch.severity ?? existing.severity,
   };
 
   getDb().prepare(
@@ -202,7 +206,8 @@ export function updateReport(id: string, patch: ReportPatch): NearMissReport | n
      SET status = @status,
          human_error_type = @humanErrorType,
          contributing_factors = @contributingFactors,
-         is_exemplary = @isExemplary
+         is_exemplary = @isExemplary,
+         severity = @severity
      WHERE id = @id`
   ).run({
     id,
@@ -210,6 +215,7 @@ export function updateReport(id: string, patch: ReportPatch): NearMissReport | n
     humanErrorType: merged.humanErrorType ?? null,
     contributingFactors: JSON.stringify(merged.contributingFactors),
     isExemplary: merged.isExemplary ? 1 : 0,
+    severity: merged.severity,
   });
 
   return merged;
@@ -313,4 +319,58 @@ export function getRewardRankings(): RewardRanking[] {
     exemplaryCount: r.exemplary_count ?? 0,
     resolvedCount: r.resolved_count ?? 0,
   }));
+}
+
+/* ============================================================
+ * 첨부 사진
+ *
+ * 이미지는 SQLite BLOB으로 DB 파일 안에 함께 저장한다.
+ * 파일시스템에 따로 저장하지 않는 이유: 이 앱은 DB가 파일 하나(data/near-miss.db)로
+ * 완결되는 구조이고, Render 무료 플랜처럼 컨테이너가 재시작되면 파일시스템이
+ * 초기화되는 환경에서 "DB만 남고 이미지는 사라지는" 불일치가 생기는 것보다
+ * 둘의 수명을 일치시키는 편이 낫다. 백업도 DB 파일 하나만 복사하면 된다.
+ *
+ * 대신 원본 사진을 그대로 넣으면 DB가 급격히 커지므로, 업로드 전 클라이언트에서
+ * 리사이즈·압축한다(lib/utils.ts의 compressImage). 서버에서도 상한을 강제한다.
+ * ============================================================ */
+
+/** 서버가 받아들이는 사진 1장의 최대 크기 (압축 후 기준) */
+export const MAX_PHOTO_BYTES = 1_500_000; // 1.5MB
+
+export function savePhoto(reportId: string, mimeType: string, data: Buffer): void {
+  getDb()
+    .prepare(
+      `INSERT INTO report_photos (report_id, mime_type, data, byte_size, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(report_id) DO UPDATE SET
+         mime_type = excluded.mime_type,
+         data = excluded.data,
+         byte_size = excluded.byte_size,
+         created_at = excluded.created_at`
+    )
+    .run(reportId, mimeType, data, data.byteLength, new Date().toISOString());
+}
+
+export function getPhoto(reportId: string): { mimeType: string; data: Buffer } | null {
+  const row = getDb()
+    .prepare<[string], { mime_type: string; data: Buffer }>(
+      "SELECT mime_type, data FROM report_photos WHERE report_id = ?"
+    )
+    .get(reportId);
+  return row ? { mimeType: row.mime_type, data: row.data } : null;
+}
+
+/** 배후 요인별 집계 (관리자 대시보드 차트용) */
+export function getContributingFactorStats(): { factor: string; count: number }[] {
+  // contributing_factors는 JSON 문자열이라 SQL로 직접 집계할 수 없어
+  // 애플리케이션에서 펼쳐 센다. 데이터 규모상 문제되지 않는다.
+  const counter = new Map<string, number>();
+  for (const r of getAllReports()) {
+    for (const f of r.contributingFactors) {
+      counter.set(f, (counter.get(f) ?? 0) + 1);
+    }
+  }
+  return Array.from(counter.entries())
+    .map(([factor, count]) => ({ factor, count }))
+    .sort((a, b) => b.count - a.count);
 }

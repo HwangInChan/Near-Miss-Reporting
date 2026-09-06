@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getReportById, updateReport } from "@/lib/reportRepository";
 import { HUMAN_ERROR_TYPES } from "@/lib/types";
-import type { ReportStatus, HumanErrorType, ContributingFactor } from "@/lib/types";
+import type { ReportStatus, HumanErrorType, ContributingFactor, Severity } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const VALID_STATUSES: ReportStatus[] = ["미분류", "분석중", "조치완료"];
+const VALID_SEVERITIES: Severity[] = ["low", "medium", "high"];
 
 interface PatchBody {
   status?: ReportStatus;
   humanErrorType?: HumanErrorType;
   contributingFactors?: ContributingFactor[];
   isExemplary?: boolean;
+  severity?: Severity;
 }
 
 export async function PATCH(
@@ -40,12 +42,16 @@ export async function PATCH(
   ) {
     return NextResponse.json({ error: "유효하지 않은 humanErrorType 값입니다." }, { status: 400 });
   }
+  if (body.severity !== undefined && !VALID_SEVERITIES.includes(body.severity)) {
+    return NextResponse.json({ error: "유효하지 않은 severity 값입니다." }, { status: 400 });
+  }
 
   const updated = updateReport(params.id, {
     status: body.status,
     humanErrorType: body.humanErrorType,
     contributingFactors: body.contributingFactors,
     isExemplary: body.isExemplary,
+    severity: body.severity,
   });
 
   return NextResponse.json({ report: updated });

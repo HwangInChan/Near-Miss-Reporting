@@ -16,6 +16,7 @@ import {
   loadStoredWorker,
   saveStoredWorker,
   clearStoredWorker,
+  compressImage,
 } from "@/lib/utils";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 
@@ -92,11 +93,14 @@ export function ReportForm() {
     setErrorMessage("");
 
     try {
+      // 사진은 업로드 전에 리사이즈·압축한다 (원본은 수 MB라 DB가 금세 비대해진다).
+      const photoDataUrl = photo ? await compressImage(photo) : undefined;
+
       // 실제 DB(app/api/reports)에 저장 → 관리자 대시보드에 즉시 반영된다.
       const report = await submitReport({
         zoneId,
         transcript: editedTranscript.trim(),
-        photoAttached: photo !== null,
+        photoDataUrl,
         employeeId: worker?.employeeId,
         isAnonymous,
       });

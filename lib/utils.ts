@@ -185,7 +185,8 @@ export function computeHeinrichProjection(nearMissCount: number, thresholdCount:
 export interface CreateReportPayload {
   zoneId: string;
   transcript: string;
-  photoAttached?: boolean;
+  /** 압축된 이미지 data URL. compressImage()의 결과를 그대로 넣는다. */
+  photoDataUrl?: string;
   employeeId?: string;
   isAnonymous?: boolean;
 }
@@ -195,6 +196,7 @@ export interface UpdateReportPayload {
   humanErrorType?: HumanErrorType;
   contributingFactors?: ContributingFactor[];
   isExemplary?: boolean;
+  severity?: Severity;
 }
 
 async function parseJsonOrThrow(response: Response) {
@@ -268,6 +270,58 @@ export async function fetchRewardRankings(): Promise<RewardRanking[]> {
   const res = await fetch("/api/rankings", { cache: "no-store" });
   const data = await parseJsonOrThrow(res);
   return data.rankings as RewardRanking[];
+}
+
+export async function fetchFactorStats(): Promise<{ factor: string; count: number }[]> {
+  const res = await fetch("/api/factor-stats", { cache: "no-store" });
+  const data = await parseJsonOrThrow(res);
+  return data.stats as { factor: string; count: number }[];
+}
+
+// ---------- 이미지 압축 ----------
+
+/**
+ * 촬영한 사진을 업로드 전에 리사이즈·압축해 data URL로 만든다.
+ *
+ * 요즘 스마트폰 사진은 한 장에 3~8MB라 원본을 그대로 DB에 넣으면 금세 비대해지고
+ * 느린 현장 네트워크에서 업로드도 오래 걸린다. 아차사고 기록용으로는 "무엇이
+ * 문제인지 알아볼 수 있는" 수준이면 충분하므로 긴 변 1280px, JPEG 품질 0.7로
+ * 줄인다 (보통 150~300KB).
+ */
+export function compressImage(
+  file: File,
+  maxEdge = 1280,
+  quality = 0.7
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("이미지를 처리할 수 없습니다."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("이미지를 읽을 수 없습니다."));
+    };
+
+    img.src = url;
+  });
 }
 
 // ---------- 작업자 신원의 기기 저장 ----------
