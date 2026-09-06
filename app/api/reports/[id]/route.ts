@@ -12,6 +12,7 @@ interface PatchBody {
   status?: ReportStatus;
   humanErrorType?: HumanErrorType;
   contributingFactors?: ContributingFactor[];
+  isExemplary?: boolean;
 }
 
 export async function PATCH(
@@ -44,6 +45,7 @@ export async function PATCH(
     status: body.status,
     humanErrorType: body.humanErrorType,
     contributingFactors: body.contributingFactors,
+    isExemplary: body.isExemplary,
   });
 
   return NextResponse.json({ report: updated });

@@ -10,8 +10,8 @@
  *   npm run db:seed         DB가 비어있을 때만 90건의 더미 데이터를 삽입
  *   npm run db:seed:force   기존 데이터를 모두 지우고 새로 시드
  */
-import { clearAllReports, countReports, bulkInsertReports } from "../lib/reportRepository";
-import { DUMMY_REPORTS } from "../lib/dummyData";
+import { clearAllReports, countReports, bulkInsertReports, registerWorker } from "../lib/reportRepository";
+import { DUMMY_REPORTS, DUMMY_WORKERS } from "../lib/dummyData";
 
 const force = process.argv.includes("--force");
 const existing = countReports();
@@ -27,6 +27,12 @@ if (existing > 0 && force) {
   clearAllReports();
   console.log(`기존 ${existing}건을 삭제했습니다.`);
 }
+
+// 리포트가 참조하는 작업자를 먼저 등록해야 포상 집계(JOIN)가 성립한다.
+for (const w of DUMMY_WORKERS) {
+  registerWorker(w.employeeId, w.name);
+}
+console.log(`${DUMMY_WORKERS.length}명의 작업자를 등록했습니다.`);
 
 bulkInsertReports(DUMMY_REPORTS);
 console.log(`${DUMMY_REPORTS.length}건의 더미 리포트를 시드했습니다. (data/near-miss.db)`);

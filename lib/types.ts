@@ -64,6 +64,31 @@ export interface NearMissReport {
   status: ReportStatus;
   humanErrorType?: HumanErrorType;
   contributingFactors: ContributingFactor[];
+  /** 신고자 사번. 익명 신고이거나 사번 도입 이전 데이터면 undefined. */
+  employeeId?: string;
+  /** 익명 신고 여부. true면 포상 집계에서 제외된다. */
+  isAnonymous: boolean;
+  /** 관리자가 "중대재해를 예방한 우수 신고"로 표시했는지 (질적 포상용). */
+  isExemplary: boolean;
+}
+
+// 등록된 작업자 (사번 + 이름)
+export interface Worker {
+  employeeId: string;
+  name: string;
+  createdAt: string;
+}
+
+/**
+ * 포상 집계 결과 1인분.
+ * 익명 신고는 employeeId가 없으므로 애초에 이 집계에 포함되지 않는다.
+ */
+export interface RewardRanking {
+  employeeId: string;
+  name: string;
+  totalCount: number; // 기명 신고 총 건수
+  exemplaryCount: number; // 그중 우수 신고로 선정된 건수
+  resolvedCount: number; // 그중 조치완료까지 이어진 건수
 }
 
 // 히트맵 셀 집계 데이터

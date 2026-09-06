@@ -60,9 +60,45 @@ function createConnection(): Database.Database {
       human_error_type TEXT,
       contributing_factors TEXT NOT NULL DEFAULT '[]'
     );
+
+    CREATE TABLE IF NOT EXISTS workers (
+      employee_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
 
+  migrate(db);
+
   return db;
+}
+
+/**
+ * 기존에 만들어진 DB 파일에도 새로 추가된 컬럼을 자동으로 채워 넣는다.
+ * (이미 데이터가 쌓인 data/near-miss.db를 지우지 않고 그대로 쓸 수 있게 하기 위함)
+ * SQLite는 "IF NOT EXISTS"를 지원하지 않으므로, 현재 컬럼 목록을 조회해서
+ * 없는 것만 ALTER TABLE로 추가한다.
+ */
+function migrate(db: Database.Database): void {
+  const columns = db
+    .prepare<[], { name: string }>("PRAGMA table_info(reports)")
+    .all()
+    .map((c) => c.name);
+
+  const additions: Record<string, string> = {
+    // 신고자 사번. 익명 신고이거나 사번 도입 이전의 과거 데이터면 NULL.
+    employee_id: "ALTER TABLE reports ADD COLUMN employee_id TEXT",
+    // 익명 신고 여부. 익명이면 포상 집계에서 제외된다.
+    is_anonymous: "ALTER TABLE reports ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0",
+    // 관리자가 "중대재해를 예방한 우수 신고"로 표시했는지 여부 (질적 포상용).
+    is_exemplary: "ALTER TABLE reports ADD COLUMN is_exemplary INTEGER NOT NULL DEFAULT 0",
+  };
+
+  for (const [column, sql] of Object.entries(additions)) {
+    if (!columns.includes(column)) {
+      db.exec(sql);
+    }
+  }
 }
 
 export const db: Database.Database = globalThis.__nearMissDb ?? createConnection();

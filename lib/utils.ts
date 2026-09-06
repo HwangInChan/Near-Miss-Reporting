@@ -3,7 +3,9 @@ import {
   HeatmapCell,
   HumanErrorType,
   NearMissReport,
+  RewardRanking,
   Severity,
+  Worker,
 } from "./types";
 import { FACTORY_ZONES, HEINRICH_RATIO, SEVERITY_COLOR } from "./constants";
 
@@ -121,6 +123,45 @@ export function intensityToColor(intensity: number): string {
 }
 
 /**
+ * 최근 발생 속도를 근거로 임계점 도달 시점을 추정한다.
+ *
+ * 최근 `windowDays`일간의 신고 건수로 하루 평균 발생률을 구한 뒤,
+ * 남은 건수를 그 속도로 나눠 며칠 뒤 임계점에 닿을지 외삽한다.
+ * 단순 선형 외삽이므로 정밀 예측이 아니라 "이 추세면 언제쯤"이라는
+ * 경보용 지표로만 쓴다.
+ */
+export function forecastThresholdArrival(
+  reports: NearMissReport[],
+  threshold: number,
+  windowDays = 14
+) {
+  const total = reports.length;
+  const remaining = threshold - total;
+
+  if (remaining <= 0) {
+    return { alreadyReached: true, perDay: 0, daysLeft: 0, hasEnoughData: true };
+  }
+
+  const cutoff = Date.now() - windowDays * 86400000;
+  const recentCount = reports.filter(
+    (r) => new Date(r.createdAt).getTime() >= cutoff
+  ).length;
+  const perDay = recentCount / windowDays;
+
+  // 최근 기간에 신고가 거의 없으면 외삽이 무의미하다.
+  if (recentCount < 2 || perDay <= 0) {
+    return { alreadyReached: false, perDay, daysLeft: null, hasEnoughData: false };
+  }
+
+  return {
+    alreadyReached: false,
+    perDay: Math.round(perDay * 10) / 10,
+    daysLeft: Math.ceil(remaining / perDay),
+    hasEnoughData: true,
+  };
+}
+
+/**
  * 하인리히 1:29:300 법칙 기반 진행률 계산.
  * 현재 아차사고 건수를 기준으로, 통계적으로 상응하는
  * 경미 사고/중대재해 "예상치"와 임계 도달률(%)을 함께 반환한다.
@@ -145,12 +186,15 @@ export interface CreateReportPayload {
   zoneId: string;
   transcript: string;
   photoAttached?: boolean;
+  employeeId?: string;
+  isAnonymous?: boolean;
 }
 
 export interface UpdateReportPayload {
   status?: NearMissReport["status"];
   humanErrorType?: HumanErrorType;
   contributingFactors?: ContributingFactor[];
+  isExemplary?: boolean;
 }
 
 async function parseJsonOrThrow(response: Response) {
@@ -197,4 +241,63 @@ export async function patchReport(
  */
 export function toggleResolvedStatus(current: NearMissReport["status"]): NearMissReport["status"] {
   return current === "조치완료" ? "분석중" : "조치완료";
+}
+
+// ---------- 작업자(사번) / 포상 관련 API ----------
+
+/** 내가 낸 기명 신고 이력만 조회 */
+export async function fetchMyReports(employeeId: string): Promise<NearMissReport[]> {
+  const res = await fetch(`/api/reports?employeeId=${encodeURIComponent(employeeId)}`, {
+    cache: "no-store",
+  });
+  const data = await parseJsonOrThrow(res);
+  return data.reports as NearMissReport[];
+}
+
+export async function registerWorkerApi(employeeId: string, name: string): Promise<Worker> {
+  const res = await fetch("/api/workers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeId, name }),
+  });
+  const data = await parseJsonOrThrow(res);
+  return data.worker as Worker;
+}
+
+export async function fetchRewardRankings(): Promise<RewardRanking[]> {
+  const res = await fetch("/api/rankings", { cache: "no-store" });
+  const data = await parseJsonOrThrow(res);
+  return data.rankings as RewardRanking[];
+}
+
+// ---------- 작업자 신원의 기기 저장 ----------
+// 사번을 매번 입력하지 않도록 브라우저 localStorage에 기억해둔다.
+// (서버 세션/로그인이 아니라 "이 기기에서 쓰는 사람" 정도의 가벼운 식별)
+
+const WORKER_STORAGE_KEY = "nearmiss.worker";
+
+export function loadStoredWorker(): Worker | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(WORKER_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Worker) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredWorker(worker: Worker): void {
+  try {
+    window.localStorage.setItem(WORKER_STORAGE_KEY, JSON.stringify(worker));
+  } catch {
+    // 사생활 보호 모드 등으로 저장이 막혀도 앱 동작 자체는 계속되어야 한다.
+  }
+}
+
+export function clearStoredWorker(): void {
+  try {
+    window.localStorage.removeItem(WORKER_STORAGE_KEY);
+  } catch {
+    // 무시
+  }
 }

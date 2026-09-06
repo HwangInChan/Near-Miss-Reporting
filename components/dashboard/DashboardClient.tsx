@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { NearMissReport } from "@/lib/types";
-import { aggregateHeatmap, countByHumanError, fetchReports, patchReport } from "@/lib/utils";
+import { NearMissReport, RewardRanking } from "@/lib/types";
+import {
+  aggregateHeatmap,
+  countByHumanError,
+  fetchReports,
+  fetchRewardRankings,
+  patchReport,
+} from "@/lib/utils";
 import { NEAR_MISS_ALERT_THRESHOLD } from "@/lib/constants";
 import { PanelCard } from "@/components/common/PanelCard";
 import { ReportList } from "./ReportList";
@@ -11,6 +17,7 @@ import { HeinrichPyramid } from "@/components/analytics/HeinrichPyramid";
 import { ThresholdAlertWidget } from "@/components/analytics/ThresholdAlertWidget";
 import { RiskHeatmap } from "@/components/analytics/RiskHeatmap";
 import { ErrorTypeDonutChart } from "@/components/analytics/ErrorTypeDonutChart";
+import { RewardRankingPanel } from "./RewardRankingPanel";
 import { RefreshCw } from "lucide-react";
 
 // 작업자 화면에서 새 리포트가 접수되는 것을 "실시간처럼" 반영하기 위한 폴링 주기.
@@ -19,6 +26,7 @@ const POLL_INTERVAL_MS = 8000;
 
 export function DashboardClient() {
   const [reports, setReports] = useState<NearMissReport[]>([]);
+  const [rankings, setRankings] = useState<RewardRanking[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -27,8 +35,9 @@ export function DashboardClient() {
   const loadReports = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsRefreshing(true);
     try {
-      const data = await fetchReports();
+      const [data, rankingData] = await Promise.all([fetchReports(), fetchRewardRankings()]);
       setReports(data);
+      setRankings(rankingData);
       setErrorMessage("");
       // 주의: 여기서 첫 리포트를 자동으로 선택하지 않는다.
       // 예전에는 setSelectedId((prev) => prev ?? data[0]?.id ?? null) 로
@@ -61,8 +70,15 @@ export function DashboardClient() {
         status: patch.status,
         humanErrorType: patch.humanErrorType,
         contributingFactors: patch.contributingFactors,
+        isExemplary: patch.isExemplary,
       });
       setReports((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      // 조치완료 여부·우수 신고 지정은 포상 집계에 영향을 주므로 순위도 다시 불러온다.
+      if (patch.status !== undefined || patch.isExemplary !== undefined) {
+        fetchRewardRankings().then(setRankings).catch(() => {
+          /* 순위 갱신 실패는 조용히 무시 - 다음 폴링에서 다시 시도된다 */
+        });
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "저장에 실패했습니다.");
       loadReports({ silent: true });
@@ -110,8 +126,8 @@ export function DashboardClient() {
         <>
           {/* 경보·예측·분포 위젯 4종 - 넓은 화면에서 한 줄, 좁아지면 자동으로 줄바꿈 */}
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <PanelCard title="임계점 경보" subtitle={`아차사고 ${NEAR_MISS_ALERT_THRESHOLD}건 도달 시 점등`} centerContent>
-              <ThresholdAlertWidget currentCount={reports.length} />
+            <PanelCard title="임계점 경보" subtitle={`아차사고 ${NEAR_MISS_ALERT_THRESHOLD}건 도달 시 점등`}>
+              <ThresholdAlertWidget reports={reports} />
             </PanelCard>
             <PanelCard title="하인리히 1:29:300" subtitle="아차사고 기반 사고 예측">
               <HeinrichPyramid nearMissCount={reports.length} />
@@ -137,6 +153,16 @@ export function DashboardClient() {
             </PanelCard>
             <PanelCard title="근본 원인 분석" subtitle="인적 오류 분류 · 배후 요인 태깅">
               <ReportDetailPanel report={selectedReport} onUpdate={handleUpdate} />
+            </PanelCard>
+          </div>
+
+          {/* Row 4: 포상 집계 (익명 신고 제외) */}
+          <div className="mt-4">
+            <PanelCard
+              title="신고 포상 집계"
+              subtitle="기명 신고 기준 · 우수 신고 수 우선 정렬"
+            >
+              <RewardRankingPanel rankings={rankings} />
             </PanelCard>
           </div>
         </>

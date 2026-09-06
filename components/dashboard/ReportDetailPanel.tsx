@@ -6,7 +6,7 @@ import { formatDateTime, toggleResolvedStatus } from "@/lib/utils";
 import { SeverityBadge, StatusBadge } from "@/components/common/Badge";
 import { HumanErrorTagger } from "./HumanErrorTagger";
 import { ContributingFactors } from "./ContributingFactors";
-import { Camera, MapPin, User, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Camera, MapPin, User, RotateCcw, CheckCircle2, Star, EyeOff } from "lucide-react";
 
 interface ReportDetailPanelProps {
   report: NearMissReport | null;
@@ -41,6 +41,10 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
     onUpdate(report!.id, { status: toggleResolvedStatus(report!.status) });
   }
 
+  function toggleExemplary() {
+    onUpdate(report!.id, { isExemplary: !report!.isExemplary });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* 리포트 원문 */}
@@ -49,6 +53,18 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
           <span className="font-body text-sm text-steel-light">{report.id}</span>
           <SeverityBadge severity={report.severity} />
           <StatusBadge status={report.status} />
+          {report.isAnonymous && (
+            <span className="inline-flex items-center gap-1 rounded-module border border-steel-light px-2 py-0.5 font-body text-xs text-steel-light">
+              <EyeOff className="h-3 w-3" />
+              익명
+            </span>
+          )}
+          {report.isExemplary && (
+            <span className="inline-flex items-center gap-1 rounded-module border border-safety-yellow bg-safety-yellow/10 px-2 py-0.5 font-body text-xs font-semibold text-safety-yellow">
+              <Star className="h-3 w-3" />
+              우수 신고
+            </span>
+          )}
         </div>
         <p className="mb-3 rounded-module border border-steel-hairline bg-ink-softer p-4 font-body text-base leading-relaxed text-paper">
           “{report.transcript}”
@@ -85,6 +101,23 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
         <ContributingFactors value={report.contributingFactors} onChange={setFactors} />
       </div>
 
+      {/* 우수 신고 지정 (질적 포상용).
+          익명 신고는 사번이 없어 포상 집계 대상이 아니므로 버튼을 노출하지 않는다. */}
+      {!report.isAnonymous && (
+        <button
+          type="button"
+          onClick={toggleExemplary}
+          className={
+            report.isExemplary
+              ? "flex items-center justify-center gap-2 rounded-module border-2 border-safety-yellow bg-safety-yellow/10 py-2.5 font-display text-sm tracking-wide text-safety-yellow"
+              : "flex items-center justify-center gap-2 rounded-module border-2 border-steel bg-ink-softer py-2.5 font-display text-sm tracking-wide text-steel-light hover:text-paper"
+          }
+        >
+          <Star className="h-4 w-4" />
+          {report.isExemplary ? "우수 신고로 지정됨 (해제하기)" : "우수 신고로 지정"}
+        </button>
+      )}
+ 
       <button
         type="button"
         onClick={toggleResolved}

@@ -27,8 +27,15 @@ export const HEINRICH_RATIO = {
   nearMiss: 300,
 };
 
-// 아차사고 누적 건수가 이 값에 도달하면 경보 위젯이 점등된다.
-export const NEAR_MISS_ALERT_THRESHOLD = 150;
+/**
+ * 아차사고 누적 건수가 이 값에 도달하면 경보 위젯이 점등된다.
+ *
+ * 주의: 이 값은 학술적으로 확립된 기준이 아니라 조직이 스스로 정하는 관리 기준이다.
+ * (하인리히 비율에서 아차사고는 300이지만, 300건까지 방치한 뒤 경보를 울리는 것은
+ *  예방 목적에 맞지 않으므로 그보다 훨씬 이른 시점을 임계점으로 잡았다.)
+ * 실제 도입 시에는 사업장 규모·근로자 수·과거 재해 이력을 반영해 조정해야 한다.
+ */
+export const NEAR_MISS_ALERT_THRESHOLD = 50;
 
 export const REPORT_STATUS_ORDER = ["미분류", "분석중", "조치완료"] as const;
 
