@@ -19,7 +19,7 @@ export function LanguageSwitcher({ lang, onChange, className }: LanguageSwitcher
   return (
     <div
       className={cn(
-        "flex items-center gap-1 rounded-module border border-steel-hairline bg-ink-softer p-1",
+        "flex shrink-0 items-center gap-0.5 rounded-module border border-steel-hairline bg-ink-softer p-1",
         className
       )}
     >
@@ -31,7 +31,7 @@ export function LanguageSwitcher({ lang, onChange, className }: LanguageSwitcher
           onClick={() => onChange(l.code)}
           aria-pressed={lang === l.code}
           className={cn(
-            "rounded-[3px] px-2 py-1 font-body text-xs transition-colors",
+            "whitespace-nowrap rounded-[3px] px-2 py-1 font-body text-xs transition-colors",
             lang === l.code
               ? "bg-safety-yellow/15 text-safety-yellow"
               : "text-steel-light hover:text-paper"

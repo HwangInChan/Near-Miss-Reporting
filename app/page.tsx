@@ -12,12 +12,10 @@ export default function Home() {
   const { lang, setLang, t } = useLanguage();
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center gap-10 bg-ink px-6 text-center">
-      <LanguageSwitcher
-        lang={lang}
-        onChange={setLang}
-        className="absolute right-5 top-5"
-      />
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-ink px-5 py-8 text-center">
+      {/* 일반 흐름에 두어야 한다. absolute로 띄우면 좁은 화면에서 제목 위에 겹쳐
+          "NEAR-MISS &" 처럼 글자가 잘려 보인다. */}
+      <LanguageSwitcher lang={lang} onChange={setLang} />
 
       <div>
         <p className="mb-2 font-body text-xs uppercase tracking-widest text-safety-yellow">

@@ -20,7 +20,8 @@ import { RiskHeatmap } from "@/components/analytics/RiskHeatmap";
 import { ErrorTypeDonutChart } from "@/components/analytics/ErrorTypeDonutChart";
 import { RewardRankingPanel } from "./RewardRankingPanel";
 import { ContributingFactorChart } from "@/components/analytics/ContributingFactorChart";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, LogOut } from "lucide-react";
+import { AdminGate, useAdminGate } from "./AdminGate";
 
 // 작업자 화면에서 새 리포트가 접수되는 것을 "실시간처럼" 반영하기 위한 폴링 주기.
 //
@@ -33,6 +34,7 @@ import { RefreshCw } from "lucide-react";
 const POLL_INTERVAL_MS = 30000;
 
 export function DashboardClient() {
+  const { isUnlocked, isChecked, unlock, lock } = useAdminGate();
   const [reports, setReports] = useState<NearMissReport[]>([]);
   const [rankings, setRankings] = useState<RewardRanking[]>([]);
   const [factorStats, setFactorStats] = useState<{ factor: string; count: number }[]>([]);
@@ -68,6 +70,9 @@ export function DashboardClient() {
   }, []);
 
   useEffect(() => {
+    // 잠금이 풀리기 전에는 데이터를 불러오지 않는다.
+    if (!isUnlocked) return;
+
     loadReports();
 
     // 탭이 화면에 보일 때만 폴링한다. 대시보드는 하루 종일 열어두는 화면이라,
@@ -91,7 +96,7 @@ export function DashboardClient() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [loadReports]);
+  }, [loadReports, isUnlocked]);
 
   const selectedReport = reports.find((r) => r.id === selectedId) ?? null;
 
@@ -128,6 +133,16 @@ export function DashboardClient() {
   const heatmapCells = useMemo(() => aggregateHeatmap(reports), [reports]);
   const errorTypeData = useMemo(() => countByHumanError(reports), [reports]);
 
+  // sessionStorage를 읽기 전에는 아무것도 그리지 않는다.
+  // (잠금 화면이 잠깐 보였다 사라지는 깜빡임 방지)
+  if (!isChecked) {
+    return <div className="min-h-dvh bg-ink" />;
+  }
+
+  if (!isUnlocked) {
+    return <AdminGate onUnlock={unlock} />;
+  }
+
   return (
     <div className="min-h-dvh bg-ink px-4 py-5 sm:px-6 sm:py-6">
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -150,6 +165,15 @@ export function DashboardClient() {
           >
             <RefreshCw className={isRefreshing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
             새로고침
+          </button>
+          <button
+            type="button"
+            onClick={lock}
+            title="잠그고 나가기"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-module border border-steel-hairline bg-ink-softer px-3 py-1.5 font-body text-xs text-steel-light hover:text-paper"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            잠금
           </button>
         </div>
       </header>
