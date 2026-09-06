@@ -25,8 +25,8 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
   return (
     <div className="flex flex-col gap-3">
       {/* 현재 누적 건수 + 진행률 */}
-      <div className="flex items-center gap-4 rounded-module border border-steel-hairline bg-ink-softer p-4">
-        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+      <div className="flex items-center gap-3 rounded-module border border-steel-hairline bg-ink-softer p-3.5">
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
           {reached && (
             <span className="absolute inset-0 rounded-full bg-safety-red/50 animate-pulse-ring" />
           )}
@@ -34,7 +34,7 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
             className="relative flex h-12 w-12 items-center justify-center rounded-full border-2"
             style={{ borderColor: stateColor, backgroundColor: `${stateColor}22` }}
           >
-            <AlertTriangle className="h-6 w-6" style={{ color: stateColor }} />
+            <AlertTriangle className="h-5 w-5" style={{ color: stateColor }} />
           </div>
         </div>
 
@@ -58,11 +58,9 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
       </div>
 
       {/* 최근 발생 속도 기반 임계점 도달 예측 */}
-      <div className="flex items-center gap-4 rounded-module border border-steel-hairline bg-ink-softer p-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-steel bg-ink">
-            <CalendarClock className="h-6 w-6 text-steel-light" />
-          </div>
+      <div className="flex items-center gap-3 rounded-module border border-steel-hairline bg-ink-softer p-3.5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-steel bg-ink">
+          <CalendarClock className="h-5 w-5 text-steel-light" />
         </div>
 
         <div className="flex-1">
@@ -70,7 +68,7 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
             <>
               <p className="font-display text-lg tracking-wide text-safety-red">이미 도달</p>
               <p className="font-body text-xs text-steel-light">
-                임계점을 넘었습니다. 원인 분석과 조치가 시급합니다.
+                원인 분석과 조치가 시급합니다.
               </p>
             </>
           ) : forecast.hasEnoughData ? (
@@ -79,15 +77,15 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
                 약 {forecast.daysLeft}일 후 도달
               </p>
               <p className="flex items-center gap-1 font-body text-xs text-steel-light">
-                <TrendingUp className="h-3 w-3" />
-                최근 2주 평균 하루 {forecast.perDay}건 기준 추정
+                <TrendingUp className="h-3 w-3 shrink-0" />
+                최근 2주 하루 {forecast.perDay}건 기준
               </p>
             </>
           ) : (
             <>
               <p className="font-display text-lg tracking-wide text-steel-light">산출 불가</p>
               <p className="font-body text-xs text-steel-light">
-                최근 2주간 신고가 적어 도달 시점을 추정할 수 없습니다.
+                최근 신고가 적어 추정이 어렵습니다.
               </p>
             </>
           )}

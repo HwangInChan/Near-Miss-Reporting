@@ -28,8 +28,8 @@ export function ErrorTypeDonutChart({ data }: ErrorTypeDonutChartProps) {
   });
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <svg viewBox="0 0 120 120" className="h-36 w-36 shrink-0 -rotate-90">
+    <div className="flex items-center justify-center gap-3">
+      <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0 -rotate-90">
         <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="#22272C" strokeWidth={STROKE} />
         {segments.map((s) =>
           s.count === 0 ? null : (
@@ -53,20 +53,20 @@ export function ErrorTypeDonutChart({ data }: ErrorTypeDonutChartProps) {
           textAnchor="middle"
           dominantBaseline="central"
           className="rotate-90 font-display"
-          style={{ fill: "#F2F4F5", fontSize: "26px", transformOrigin: "60px 60px" }}
+          style={{ fill: "#F2F4F5", fontSize: "28px", transformOrigin: "60px 60px" }}
         >
           {total}
         </text>
       </svg>
 
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-2">
         {segments.map((s) => (
-          <li key={s.type} className="flex items-center gap-2 font-body text-sm">
+          <li key={s.type} className="flex items-center gap-2 font-body text-xs">
             <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: HUMAN_ERROR_COLORS[s.type] }}
             />
-            <span className="w-10 text-paper">{s.type}</span>
+            <span className="w-8 shrink-0 text-paper">{s.type}</span>
             <span className="whitespace-nowrap text-steel-light">
               {s.count}건 ({Math.round(s.fraction * 100)}%)
             </span>

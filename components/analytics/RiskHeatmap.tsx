@@ -32,7 +32,7 @@ export function RiskHeatmap({ cells }: RiskHeatmapProps) {
               onFocus={() => setHovered(cell)}
               onMouseLeave={() => setHovered(null)}
               onBlur={() => setHovered(null)}
-              className="flex h-20 flex-col items-center justify-center rounded-module border border-steel-hairline font-body transition-transform hover:scale-[1.03]"
+              className="flex h-16 flex-col items-center justify-center rounded-module border border-steel-hairline font-body transition-transform hover:scale-[1.03]"
               style={{ backgroundColor: `${color}33`, borderColor: color }}
             >
               <span className="text-[11px] font-semibold text-paper">{cell.zoneId}</span>

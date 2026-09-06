@@ -27,9 +27,9 @@ export function PanelCard({ title, subtitle, action, children, className, center
     >
       <header className="flex items-center justify-between border-b border-steel-hairline px-4 py-2.5">
         <div>
-          <h2 className="font-display text-lg tracking-wide text-paper">{title}</h2>
+          <h2 className="font-display text-base tracking-wide text-paper">{title}</h2>
           {subtitle && (
-            <p className="font-body text-xs text-steel-light">{subtitle}</p>
+            <p className="font-body text-[11px] leading-snug text-steel-light">{subtitle}</p>
           )}
         </div>
         {action}

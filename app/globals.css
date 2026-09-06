@@ -7,6 +7,15 @@ body {
   height: 100%;
 }
 
+/* 한글은 기본값(word-break: normal)에서 단어 중간이 아무 데서나 끊긴다.
+   ("표시됩 / 니다", "기 / 준 추정" 처럼)
+   keep-all을 주면 어절 단위로만 줄바꿈되어 훨씬 읽기 좋다.
+   대신 아주 긴 영문/URL이 넘칠 수 있으므로 overflow-wrap으로 보완한다. */
+body {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 /* 키보드 포커스 가시성 확보 (접근성) */
 :focus-visible {
   outline: 2px solid #ffc107;
