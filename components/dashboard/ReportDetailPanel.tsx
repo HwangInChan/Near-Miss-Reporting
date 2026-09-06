@@ -18,7 +18,7 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
     return (
       <div className="flex h-full min-h-[400px] flex-col items-center justify-center gap-2 text-center">
         <p className="font-display text-lg text-steel-light">
-          왼쪽 목록에서 리포트를 선택하세요
+          목록에서 리포트를 선택하세요
         </p>
         <p className="font-body text-sm text-steel-light">
           인적 오류 유형과 배후 요인을 태깅해 근본 원인을 분석할 수 있습니다
@@ -117,7 +117,7 @@ export function ReportDetailPanel({ report, onUpdate }: ReportDetailPanelProps) 
           {report.isExemplary ? "우수 신고로 지정됨 (해제하기)" : "우수 신고로 지정"}
         </button>
       )}
- 
+
       <button
         type="button"
         onClick={toggleResolved}

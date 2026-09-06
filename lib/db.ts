@@ -4,19 +4,20 @@ import os from "node:os";
 import Database from "better-sqlite3";
 
 /**
- * SQLite 커넥션 싱글턴.
+ * SQLite 커넥션 (지연 초기화 싱글턴).
+ *
+ * 중요: DB 파일은 "모듈을 import하는 시점"이 아니라 "실제로 쿼리를 실행하는 시점"에
+ * 처음 열린다. 예전처럼 모듈 최상위에서 곧바로 커넥션을 만들면, Next.js가 빌드 중
+ * 여러 워커 프로세스를 병렬로 띄워 각 API 라우트를 로드할 때 같은 DB 파일을 동시에
+ * 열고 PRAGMA/ALTER TABLE을 실행해 SQLITE_BUSY로 빌드가 실패한다.
+ * (Render 배포 중 "Failed to collect page data for /api/workers" 오류의 원인)
  *
  * - DB 파일은 기본적으로 프로젝트 루트의 data/near-miss.db 에 저장된다
  *   (환경변수 DB_FILE_PATH로 명시적으로 바꿀 수 있다).
- * - 호스팅 환경에 따라 이 경로에 쓰기 권한이 없을 수 있으므로(읽기 전용 배포본 등),
- *   쓰기가 불가능하면 자동으로 OS 임시 폴더(os.tmpdir())로 대체한다. 이 경우 서버가
- *   재시작되면 데이터가 초기화되는데, 데모 목적에서는 오히려 매번 깨끗한 상태로
- *   시작되는 것이므로 문제가 되지 않는다.
- * - Next.js 개발 모드는 파일 변경 시 모듈을 다시 로드하므로, globalThis에 인스턴스를
- *   캐싱해 커넥션이 중복 생성되는 것을 막는다.
+ * - 호스팅 환경에 따라 이 경로에 쓰기 권한이 없을 수 있으므로, 쓰기가 불가능하면
+ *   자동으로 OS 임시 폴더로 대체한다.
  * - 파일 하나로 동작하는 임베디드 DB이므로 별도의 DB 서버 설치/구동이 필요 없다.
- *   DB Browser for SQLite(https://sqlitebrowser.org) 같은 무료 GUI로 data/near-miss.db를
- *   직접 열어 데이터를 조회/수정할 수 있다.
+ *   DB Browser for SQLite(https://sqlitebrowser.org) 같은 무료 GUI로 열어볼 수 있다.
  */
 
 function resolveDbFilePath(): string {
@@ -36,15 +37,17 @@ function resolveDbFilePath(): string {
   }
 }
 
-const DB_FILE_PATH = resolveDbFilePath();
-
 declare global {
   // eslint-disable-next-line no-var
   var __nearMissDb: Database.Database | undefined;
 }
 
 function createConnection(): Database.Database {
-  const db = new Database(DB_FILE_PATH);
+  const db = new Database(resolveDbFilePath());
+
+  // 다른 프로세스가 DB를 쓰고 있으면 즉시 실패하지 않고 최대 5초까지 기다린다.
+  // (빌드 중 병렬 워커가 겹칠 때 SQLITE_BUSY로 죽는 것을 막는 안전장치)
+  db.pragma("busy_timeout = 5000");
   db.pragma("journal_mode = WAL");
 
   db.exec(`
@@ -76,8 +79,8 @@ function createConnection(): Database.Database {
 /**
  * 기존에 만들어진 DB 파일에도 새로 추가된 컬럼을 자동으로 채워 넣는다.
  * (이미 데이터가 쌓인 data/near-miss.db를 지우지 않고 그대로 쓸 수 있게 하기 위함)
- * SQLite는 "IF NOT EXISTS"를 지원하지 않으므로, 현재 컬럼 목록을 조회해서
- * 없는 것만 ALTER TABLE로 추가한다.
+ * SQLite는 컬럼 추가에 "IF NOT EXISTS"를 지원하지 않으므로, 현재 컬럼 목록을
+ * 조회해서 없는 것만 ALTER TABLE로 추가한다.
  */
 function migrate(db: Database.Database): void {
   const columns = db
@@ -101,8 +104,13 @@ function migrate(db: Database.Database): void {
   }
 }
 
-export const db: Database.Database = globalThis.__nearMissDb ?? createConnection();
-
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__nearMissDb = db;
+/**
+ * DB 커넥션을 얻는다. 처음 호출될 때 한 번만 파일을 열고, 이후로는 같은 것을 재사용한다.
+ * 개발 모드는 파일 변경 시 모듈을 다시 로드하므로 globalThis에 캐싱해 중복 생성을 막는다.
+ */
+export function getDb(): Database.Database {
+  if (!globalThis.__nearMissDb) {
+    globalThis.__nearMissDb = createConnection();
+  }
+  return globalThis.__nearMissDb;
 }

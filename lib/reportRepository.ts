@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "./db";
+import { getDb } from "./db";
 import {
   NearMissReport,
   ContributingFactor,
@@ -52,16 +52,16 @@ function rowToReport(row: ReportRow): NearMissReport {
   };
 }
 
-const insertStatement = db.prepare(
-  `INSERT INTO reports
-    (id, created_at, zone_id, reporter_alias, transcript, photo_attached, severity, status,
-     human_error_type, contributing_factors, employee_id, is_anonymous, is_exemplary)
-   VALUES (@id, @createdAt, @zoneId, @reporterAlias, @transcript, @photoAttached, @severity, @status,
-     @humanErrorType, @contributingFactors, @employeeId, @isAnonymous, @isExemplary)`
-);
-
 function insertReportRow(report: NearMissReport): void {
-  insertStatement.run({
+  // prepared statement를 모듈 최상위가 아니라 여기서 만든다.
+  // (최상위에서 만들면 import만 해도 DB 파일이 열려 빌드 중 충돌이 난다)
+  getDb().prepare(
+    `INSERT INTO reports
+      (id, created_at, zone_id, reporter_alias, transcript, photo_attached, severity, status,
+       human_error_type, contributing_factors, employee_id, is_anonymous, is_exemplary)
+     VALUES (@id, @createdAt, @zoneId, @reporterAlias, @transcript, @photoAttached, @severity, @status,
+       @humanErrorType, @contributingFactors, @employeeId, @isAnonymous, @isExemplary)`
+  ).run({
     id: report.id,
     createdAt: report.createdAt,
     zoneId: report.zoneId,
@@ -80,7 +80,7 @@ function insertReportRow(report: NearMissReport): void {
 
 /** scripts/seed.ts 및 자동 시드 양쪽에서 재사용하는 대량 삽입 함수 */
 export function bulkInsertReports(reports: NearMissReport[]): void {
-  const insertMany = db.transaction((rows: NearMissReport[]) => {
+  const insertMany = getDb().transaction((rows: NearMissReport[]) => {
     for (const r of rows) insertReportRow(r);
   });
   insertMany(reports);
@@ -106,7 +106,7 @@ function ensureSeeded(): void {
 /** 전체 리포트를 최신순으로 조회 */
 export function getAllReports(): NearMissReport[] {
   ensureSeeded();
-  const rows = db
+  const rows = getDb()
     .prepare<[], ReportRow>("SELECT * FROM reports ORDER BY created_at DESC")
     .all();
   return rows.map(rowToReport);
@@ -115,7 +115,7 @@ export function getAllReports(): NearMissReport[] {
 /** 특정 작업자가 낸 기명 신고만 최신순으로 조회 (내 신고 이력용) */
 export function getReportsByEmployee(employeeId: string): NearMissReport[] {
   ensureSeeded();
-  const rows = db
+  const rows = getDb()
     .prepare<[string], ReportRow>(
       "SELECT * FROM reports WHERE employee_id = ? ORDER BY created_at DESC"
     )
@@ -124,7 +124,7 @@ export function getReportsByEmployee(employeeId: string): NearMissReport[] {
 }
 
 export function getReportById(id: string): NearMissReport | null {
-  const row = db
+  const row = getDb()
     .prepare<[string], ReportRow>("SELECT * FROM reports WHERE id = ?")
     .get(id);
   return row ? rowToReport(row) : null;
@@ -197,7 +197,7 @@ export function updateReport(id: string, patch: ReportPatch): NearMissReport | n
     isExemplary: patch.isExemplary ?? existing.isExemplary,
   };
 
-  db.prepare(
+  getDb().prepare(
     `UPDATE reports
      SET status = @status,
          human_error_type = @humanErrorType,
@@ -216,13 +216,13 @@ export function updateReport(id: string, patch: ReportPatch): NearMissReport | n
 }
 
 export function countReports(): number {
-  const row = db.prepare<[], { count: number }>("SELECT COUNT(*) as count FROM reports").get();
+  const row = getDb().prepare<[], { count: number }>("SELECT COUNT(*) as count FROM reports").get();
   return row?.count ?? 0;
 }
 
 /** 시드 스크립트 전용: 전체 삭제 후 초기화 */
 export function clearAllReports(): void {
-  db.exec("DELETE FROM reports");
+  getDb().exec("DELETE FROM reports");
 }
 
 /* ============================================================
@@ -244,7 +244,7 @@ function rowToWorker(row: WorkerRow): Worker {
 }
 
 export function getWorker(employeeId: string): Worker | null {
-  const row = db
+  const row = getDb()
     .prepare<[string], WorkerRow>("SELECT * FROM workers WHERE employee_id = ?")
     .get(employeeId);
   return row ? rowToWorker(row) : null;
@@ -259,7 +259,7 @@ export function registerWorker(employeeId: string, name: string): Worker {
 
   if (existing) {
     if (existing.name !== name) {
-      db.prepare("UPDATE workers SET name = ? WHERE employee_id = ?").run(name, employeeId);
+      getDb().prepare("UPDATE workers SET name = ? WHERE employee_id = ?").run(name, employeeId);
       return { ...existing, name };
     }
     return existing;
@@ -270,7 +270,7 @@ export function registerWorker(employeeId: string, name: string): Worker {
     name,
     createdAt: new Date().toISOString(),
   };
-  db.prepare(
+  getDb().prepare(
     "INSERT INTO workers (employee_id, name, created_at) VALUES (?, ?, ?)"
   ).run(worker.employeeId, worker.name, worker.createdAt);
 
@@ -285,7 +285,7 @@ export function registerWorker(employeeId: string, name: string): Worker {
  */
 export function getRewardRankings(): RewardRanking[] {
   ensureSeeded();
-  const rows = db
+  const rows = getDb()
     .prepare<[], {
       employee_id: string;
       name: string;
