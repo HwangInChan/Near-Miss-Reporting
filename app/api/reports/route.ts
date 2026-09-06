@@ -23,14 +23,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "잘못된 요청 본문입니다." }, { status: 400 });
   }
 
-  const { zoneId, transcript, photoDataUrl, employeeId, isAnonymous } = (body ?? {}) as {
-    zoneId?: string;
-    transcript?: string;
-    /** "data:image/jpeg;base64,..." 형태. 클라이언트에서 리사이즈·압축해 보낸다. */
-    photoDataUrl?: string;
-    employeeId?: string;
-    isAnonymous?: boolean;
-  };
+  const { zoneId, transcript, photoDataUrl, employeeId, employeeName, isAnonymous } =
+    (body ?? {}) as {
+      zoneId?: string;
+      transcript?: string;
+      /** "data:image/jpeg;base64,..." 형태. 클라이언트에서 리사이즈·압축해 보낸다. */
+      photoDataUrl?: string;
+      employeeId?: string;
+      employeeName?: string;
+      isAnonymous?: boolean;
+    };
 
   if (!zoneId || !FACTORY_ZONES.some((z) => z.id === zoneId)) {
     return NextResponse.json({ error: "유효한 zoneId가 필요합니다." }, { status: 400 });
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
     transcript: transcript.trim(),
     photoAttached: photo !== null,
     employeeId: employeeId?.trim() || undefined,
+    employeeName: employeeName?.trim() || undefined,
     isAnonymous: Boolean(isAnonymous),
   });
 

@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "아차사고 리포팅 | Safety Command Center",
+  title: "아차사고 신고 서비스",
   description: "현장 아차사고를 3초 만에 보고하고, 인적 오류를 분석하여 중대재해를 예방합니다.",
 };
 

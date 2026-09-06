@@ -140,6 +140,8 @@ export interface NewReportInput {
   photoAttached?: boolean;
   severity?: Severity;
   employeeId?: string;
+  /** 신고자 이름. 서버에 해당 사번이 없으면 이 이름으로 자동 등록한다. */
+  employeeName?: string;
   isAnonymous?: boolean;
 }
 
@@ -152,7 +154,20 @@ export async function createReport(input: NewReportInput): Promise<NearMissRepor
   // 포상 집계(employee_id 기준)에서도 자연히 빠진다.
   const employeeId = isAnonymous ? undefined : input.employeeId;
 
-  const worker = employeeId ? await getWorker(employeeId) : null;
+  /*
+   * 작업자 신원은 브라우저(localStorage)에도 저장되므로, DB를 새로 만들거나
+   * 옮기면 "브라우저에는 사번이 있는데 서버 workers 테이블에는 없는" 상태가
+   * 생긴다. 그러면 신고에 사번은 붙지만 포상 집계 JOIN에서 누락된다.
+   * 그래서 신고 시점에 사번+이름을 함께 받아 없으면 자동 등록해 스스로 복구한다.
+   */
+  let worker: Worker | null = null;
+  if (employeeId) {
+    worker = await getWorker(employeeId);
+    if (!worker && input.employeeName) {
+      worker = await registerWorker(employeeId, input.employeeName);
+    }
+  }
+
   const alias = isAnonymous
     ? "익명 신고"
     : worker
@@ -296,17 +311,25 @@ export async function registerWorker(employeeId: string, name: string): Promise<
 export async function getRewardRankings(): Promise<RewardRanking[]> {
   await ensureSeeded();
   const db = await getDb();
+  /*
+   * reports를 기준으로 workers를 LEFT JOIN한다 (반대가 아님).
+   * workers 기준으로 JOIN하면, 작업자 등록이 어긋난 신고가 집계에서 통째로
+   * 사라진다. 리포트 기준으로 세면 등록이 없어도 사번으로는 집계되고
+   * 이름만 비어 있게 되므로, 데이터가 조용히 누락되지 않는다.
+   * 익명 신고는 employee_id가 NULL이라 WHERE 절에서 자연히 제외된다.
+   */
   const res = await db.execute(`
     SELECT
-      w.employee_id,
-      w.name,
+      r.employee_id,
+      COALESCE(w.name, '(미등록 사번)') AS name,
       COUNT(r.id) AS total_count,
       SUM(CASE WHEN r.is_exemplary = 1 THEN 1 ELSE 0 END) AS exemplary_count,
       SUM(CASE WHEN r.status = '조치완료' THEN 1 ELSE 0 END) AS resolved_count
-    FROM workers w
-    JOIN reports r ON r.employee_id = w.employee_id
-    GROUP BY w.employee_id, w.name
-    ORDER BY exemplary_count DESC, total_count DESC, w.name ASC
+    FROM reports r
+    LEFT JOIN workers w ON w.employee_id = r.employee_id
+    WHERE r.employee_id IS NOT NULL
+    GROUP BY r.employee_id, w.name
+    ORDER BY exemplary_count DESC, total_count DESC, name ASC
   `);
 
   return res.rows.map((row) => {

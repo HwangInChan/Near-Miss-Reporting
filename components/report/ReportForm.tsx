@@ -102,6 +102,8 @@ export function ReportForm() {
         transcript: editedTranscript.trim(),
         photoDataUrl,
         employeeId: worker?.employeeId,
+        // 서버에 사번이 없으면(DB 이관 등) 이 이름으로 자동 등록되게 함께 보낸다.
+        employeeName: worker?.name,
         isAnonymous,
       });
 

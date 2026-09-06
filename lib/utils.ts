@@ -188,6 +188,8 @@ export interface CreateReportPayload {
   /** 압축된 이미지 data URL. compressImage()의 결과를 그대로 넣는다. */
   photoDataUrl?: string;
   employeeId?: string;
+  /** 서버에 사번이 없을 때 자동 등록하기 위한 이름 */
+  employeeName?: string;
   isAnonymous?: boolean;
 }
 
