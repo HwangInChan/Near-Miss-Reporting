@@ -38,19 +38,23 @@ export function RiskPriorityPanel({ priorities }: RiskPriorityPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* 목록이 길어져도(항목을 펼쳤을 때 포함) 카드가 끝없이 늘어나지 않도록
-          최대 높이를 두고 그 안에서 스크롤시킨다. 왼쪽 매트릭스 카드와 대략
-          비슷한 높이를 유지하는 역할도 한다. */}
-      <ul className="flex max-h-[520px] flex-col gap-2 overflow-y-auto pr-1">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      {/*
+       * min-h-0 + flex-1: 이 목록이 "필요한 높이"를 주장하지 않게 만든다.
+       * 그래야 행 높이를 왼쪽 매트릭스 카드가 결정하고, 이 목록은 남는 높이에
+       * 맞춰 스크롤된다. 항목을 펼쳐도 카드 높이가 변하지 않는다.
+       */}
+      <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {priorities.map((z, i) => {
           const style = gradeStyle(z.grade);
           const isOpen = expandedId === z.zoneId;
 
           return (
+            // shrink-0 필수: flex 자식은 기본적으로 축소되므로, 이게 없으면
+            // 높이가 모자랄 때 스크롤 대신 항목이 눌려 글자가 잘린다.
             <li
               key={z.zoneId}
-              className="overflow-hidden rounded-module border border-steel-hairline bg-ink-softer"
+              className="shrink-0 overflow-hidden rounded-module border border-steel-hairline bg-ink-softer"
             >
               <button
                 type="button"

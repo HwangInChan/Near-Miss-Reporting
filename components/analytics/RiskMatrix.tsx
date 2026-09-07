@@ -26,7 +26,8 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
   const cols = [1, 2, 3];
 
   return (
-    <div className="flex flex-col gap-3">
+    // h-full: 이 카드가 행 높이의 기준이 된다. 격자가 남는 세로 공간을 나눠 갖는다.
+    <div className="flex h-full flex-col gap-3">
       {/* 세로 축 라벨을 가로로 둔다.
           writing-mode(vertical-rl)에 rotate(180deg)를 함께 걸면 한글 글자가
           뒤집혀 읽을 수 없게 되므로, 세로쓰기를 쓰지 않는다. */}
@@ -34,9 +35,9 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
         ↑ 세로: 가능성(빈도) · 위로 갈수록 빈번
       </p>
 
-      <div className="flex gap-2">
+      <div className="flex flex-1 gap-2">
         <div className="flex flex-1 flex-col">
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid flex-1 grid-cols-3 grid-rows-3 gap-1.5">
             {rows.map((likelihood) =>
               cols.map((severity) => {
                 const score = likelihood * severity;
@@ -49,7 +50,7 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
                 return (
                   <div
                     key={`${likelihood}-${severity}`}
-                    className="flex min-h-[76px] flex-col items-center justify-center gap-1 rounded-module border p-1.5"
+                    className="flex h-full min-h-[76px] flex-col items-center justify-center gap-1 rounded-module border p-1.5"
                     style={{
                       borderColor: `${style.color}66`,
                       backgroundColor: `${style.color}14`,
