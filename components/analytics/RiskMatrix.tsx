@@ -26,8 +26,10 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
   const cols = [1, 2, 3];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
+    // h-full + flex-1 구조로 카드에 남는 세로 공간을 격자가 흡수한다.
+    // (그리드가 이웃 카드 높이에 맞춰 늘어날 때 아래쪽이 비는 것을 방지)
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex flex-1 gap-2">
         {/* 세로축 라벨 */}
         <div className="flex w-5 shrink-0 items-center justify-center">
           <span className="whitespace-nowrap font-body text-[10px] text-steel-light [writing-mode:vertical-rl] [transform:rotate(180deg)]">
@@ -35,8 +37,8 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
           </span>
         </div>
 
-        <div className="flex-1">
-          <div className="grid grid-cols-3 gap-1.5">
+        <div className="flex flex-1 flex-col">
+          <div className="grid flex-1 grid-cols-3 grid-rows-3 gap-1.5">
             {rows.map((likelihood) =>
               cols.map((severity) => {
                 const score = likelihood * severity;
@@ -49,7 +51,7 @@ export function RiskMatrix({ assessments }: RiskMatrixProps) {
                 return (
                   <div
                     key={`${likelihood}-${severity}`}
-                    className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-module border p-1.5"
+                    className="flex h-full min-h-[68px] flex-col items-center justify-center gap-1 rounded-module border p-1.5"
                     style={{
                       borderColor: `${style.color}66`,
                       backgroundColor: `${style.color}14`,

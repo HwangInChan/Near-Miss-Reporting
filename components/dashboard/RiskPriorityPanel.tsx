@@ -38,8 +38,12 @@ export function RiskPriorityPanel({ priorities }: RiskPriorityPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <ul className="flex flex-col gap-2">
+    // 목록이 길어져도 카드 높이가 무한정 늘어나지 않도록 스크롤 영역으로 묶는다.
+    // 왼쪽 위험성 매트릭스 카드와 높이를 맞추기 위한 처리이기도 하다.
+    <div className="flex h-full flex-col gap-2">
+      {/* min-h-0이 없으면 flex 자식이 내용 높이만큼 밀고 나가 스크롤이 생기지 않는다.
+          (flex 아이템의 기본 min-height는 auto라 축소되지 않기 때문) */}
+      <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {priorities.map((z, i) => {
           const style = gradeStyle(z.grade);
           const isOpen = expandedId === z.zoneId;
@@ -169,7 +173,7 @@ export function RiskPriorityPanel({ priorities }: RiskPriorityPanelProps) {
         })}
       </ul>
 
-      <p className="rounded-module border border-steel-hairline bg-ink-softer px-3 py-2 font-body text-[11px] leading-relaxed text-steel-light">
+      <p className="shrink-0 rounded-module border border-steel-hairline bg-ink-softer px-3 py-2 font-body text-[11px] leading-relaxed text-steel-light">
         위험성 = 가능성 × 중대성 (각 1~3, 최대 9). 중대성은 평균이 아니라 해당 구역에서{" "}
         <span className="text-paper">관측된 최대 심각도</span>를 사용합니다. 평균을 쓰면
         경미 사고 다수에 묻혀 중대재해 가능성이 희석되기 때문입니다.

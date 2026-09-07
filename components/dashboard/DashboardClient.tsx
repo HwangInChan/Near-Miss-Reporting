@@ -210,17 +210,21 @@ export function DashboardClient() {
             </PanelCard>
           </div>
 
-          {/* Row 3: 위험성평가 - 매트릭스 + 개선 우선순위 */}
-          <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          {/* Row 3: 위험성평가 - 매트릭스 + 개선 우선순위
+              데스크탑에서는 행 높이를 고정해 두 카드 높이를 맞춘다. 목록이 길어지면
+              오른쪽 카드 안에서 스크롤된다. 모바일에서는 높이를 풀어 자연스럽게 쌓이게 한다. */}
+          <div className="mb-4 grid grid-cols-1 gap-4 lg:h-[560px] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             <PanelCard
               title="위험성 매트릭스"
               subtitle="가능성 × 중대성 · 구역 배치"
+              fillBody
             >
               <RiskMatrix assessments={riskAssessments} />
             </PanelCard>
             <PanelCard
               title="개선 우선순위"
               subtitle="위험성 점수 순 · 권고 대책 포함"
+              fillBody
             >
               <RiskPriorityPanel priorities={riskPriorities} />
             </PanelCard>
