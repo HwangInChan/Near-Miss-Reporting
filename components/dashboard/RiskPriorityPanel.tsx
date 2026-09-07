@@ -38,12 +38,11 @@ export function RiskPriorityPanel({ priorities }: RiskPriorityPanelProps) {
   }
 
   return (
-    // 목록이 길어져도 카드 높이가 무한정 늘어나지 않도록 스크롤 영역으로 묶는다.
-    // 왼쪽 위험성 매트릭스 카드와 높이를 맞추기 위한 처리이기도 하다.
-    <div className="flex h-full flex-col gap-2">
-      {/* min-h-0이 없으면 flex 자식이 내용 높이만큼 밀고 나가 스크롤이 생기지 않는다.
-          (flex 아이템의 기본 min-height는 auto라 축소되지 않기 때문) */}
-      <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+    <div className="flex flex-col gap-2">
+      {/* 목록이 길어져도(항목을 펼쳤을 때 포함) 카드가 끝없이 늘어나지 않도록
+          최대 높이를 두고 그 안에서 스크롤시킨다. 왼쪽 매트릭스 카드와 대략
+          비슷한 높이를 유지하는 역할도 한다. */}
+      <ul className="flex max-h-[520px] flex-col gap-2 overflow-y-auto pr-1">
         {priorities.map((z, i) => {
           const style = gradeStyle(z.grade);
           const isOpen = expandedId === z.zoneId;
