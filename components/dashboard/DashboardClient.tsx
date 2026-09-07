@@ -20,6 +20,9 @@ import { RiskHeatmap } from "@/components/analytics/RiskHeatmap";
 import { ErrorTypeDonutChart } from "@/components/analytics/ErrorTypeDonutChart";
 import { RewardRankingPanel } from "./RewardRankingPanel";
 import { ContributingFactorChart } from "@/components/analytics/ContributingFactorChart";
+import { RiskMatrix } from "@/components/analytics/RiskMatrix";
+import { RiskPriorityPanel } from "./RiskPriorityPanel";
+import { assessZoneRisks, prioritizeZones } from "@/lib/riskAssessment";
 import { RefreshCw, LogOut } from "lucide-react";
 import { AdminGate, useAdminGate } from "./AdminGate";
 
@@ -131,6 +134,9 @@ export function DashboardClient() {
   }
 
   const heatmapCells = useMemo(() => aggregateHeatmap(reports), [reports]);
+  // 위험성평가는 이미 불러온 reports로 계산한다 (추가 DB 조회 없음).
+  const riskAssessments = useMemo(() => assessZoneRisks(reports), [reports]);
+  const riskPriorities = useMemo(() => prioritizeZones(riskAssessments), [riskAssessments]);
   const errorTypeData = useMemo(() => countByHumanError(reports), [reports]);
 
   // sessionStorage를 읽기 전에는 아무것도 그리지 않는다.
@@ -204,7 +210,23 @@ export function DashboardClient() {
             </PanelCard>
           </div>
 
-          {/* Row 3: 리포트 리스트 + 상세 분석 */}
+          {/* Row 3: 위험성평가 - 매트릭스 + 개선 우선순위 */}
+          <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <PanelCard
+              title="위험성 매트릭스"
+              subtitle="가능성 × 중대성 · 구역 배치"
+            >
+              <RiskMatrix assessments={riskAssessments} />
+            </PanelCard>
+            <PanelCard
+              title="개선 우선순위"
+              subtitle="위험성 점수 순 · 권고 대책 포함"
+            >
+              <RiskPriorityPanel priorities={riskPriorities} />
+            </PanelCard>
+          </div>
+
+          {/* Row 4: 리포트 리스트 + 상세 분석 */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
             <PanelCard title="접수된 리포트" subtitle="클릭하여 상세 분석으로 이동">
               {reports.length === 0 ? (
@@ -220,7 +242,7 @@ export function DashboardClient() {
             </PanelCard>
           </div>
 
-          {/* Row 4: 배후 요인 집계 + 포상 집계 */}
+          {/* Row 5: 배후 요인 집계 + 포상 집계 */}
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <PanelCard
               title="배후 요인 순위"
