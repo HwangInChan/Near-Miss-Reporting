@@ -1,7 +1,8 @@
 import { AlertTriangle, CalendarClock, TrendingUp } from "lucide-react";
 import { NEAR_MISS_ALERT_THRESHOLD } from "@/lib/constants";
 import { NearMissReport } from "@/lib/types";
-import { cn, forecastThresholdArrival } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { forecastThresholdArrival } from "@/lib/stats";
 
 interface ThresholdAlertWidgetProps {
   reports: NearMissReport[];

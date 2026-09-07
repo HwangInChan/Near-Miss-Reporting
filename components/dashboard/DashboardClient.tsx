@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NearMissReport, RewardRanking } from "@/lib/types";
 import {
-  aggregateHeatmap,
-  countByHumanError,
   fetchFactorStats,
+  fetchPhotoUsage,
   fetchReports,
   fetchRewardRankings,
   patchReport,
-} from "@/lib/utils";
+  type PhotoStorageUsage,
+} from "@/lib/api";
+import { aggregateHeatmap, countByHumanError } from "@/lib/stats";
 import { NEAR_MISS_ALERT_THRESHOLD } from "@/lib/constants";
+import { formatBytes } from "@/lib/utils";
 import { PanelCard } from "@/components/common/PanelCard";
 import { ReportList } from "./ReportList";
 import { ReportDetailPanel } from "./ReportDetailPanel";
@@ -23,8 +25,9 @@ import { ContributingFactorChart } from "@/components/analytics/ContributingFact
 import { RiskMatrix } from "@/components/analytics/RiskMatrix";
 import { RiskPriorityPanel } from "./RiskPriorityPanel";
 import { assessZoneRisks, prioritizeZones } from "@/lib/riskAssessment";
-import { RefreshCw, LogOut } from "lucide-react";
+import { RefreshCw, LogOut, Printer, HardDrive } from "lucide-react";
 import { AdminGate, useAdminGate } from "./AdminGate";
+import { ImprovementPlanPrint } from "./ImprovementPlanPrint";
 
 // 작업자 화면에서 새 리포트가 접수되는 것을 "실시간처럼" 반영하기 위한 폴링 주기.
 //
@@ -41,6 +44,7 @@ export function DashboardClient() {
   const [reports, setReports] = useState<NearMissReport[]>([]);
   const [rankings, setRankings] = useState<RewardRanking[]>([]);
   const [factorStats, setFactorStats] = useState<{ factor: string; count: number }[]>([]);
+  const [photoUsage, setPhotoUsage] = useState<PhotoStorageUsage | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -49,14 +53,16 @@ export function DashboardClient() {
   const loadReports = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsRefreshing(true);
     try {
-      const [data, rankingData, factorData] = await Promise.all([
+      const [data, rankingData, factorData, usage] = await Promise.all([
         fetchReports(),
         fetchRewardRankings(),
         fetchFactorStats(),
+        fetchPhotoUsage(),
       ]);
       setReports(data);
       setRankings(rankingData);
       setFactorStats(factorData);
+      setPhotoUsage(usage);
       setErrorMessage("");
       // 주의: 여기서 첫 리포트를 자동으로 선택하지 않는다.
       // 예전에는 setSelectedId((prev) => prev ?? data[0]?.id ?? null) 로
@@ -151,6 +157,8 @@ export function DashboardClient() {
 
   return (
     <div className="min-h-dvh bg-ink px-4 py-5 sm:px-6 sm:py-6">
+      {/* 화면에는 보이지 않고 인쇄할 때만 나타난다 (globals.css의 @media print) */}
+      <ImprovementPlanPrint priorities={riskPriorities} totalReports={reports.length} />
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-body text-xs uppercase tracking-widest text-safety-yellow">
@@ -171,6 +179,15 @@ export function DashboardClient() {
           >
             <RefreshCw className={isRefreshing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
             새로고침
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            title="개선계획서 인쇄 / PDF 저장"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-module border border-steel-hairline bg-ink-softer px-3 py-1.5 font-body text-xs text-steel-light hover:text-paper"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            개선계획서
           </button>
           <button
             type="button"
@@ -263,6 +280,19 @@ export function DashboardClient() {
               <RewardRankingPanel rankings={rankings} />
             </PanelCard>
           </div>
+
+          {/* 첨부 사진 저장 용량. 사진을 DB(BLOB)에 함께 넣는 구조라
+              용량이 곧 DB 크기가 되므로 관리자가 확인할 수 있게 표시한다. */}
+          {photoUsage && (
+            <p className="mt-4 flex flex-wrap items-center gap-2 rounded-module border border-steel-hairline bg-ink-soft px-3 py-2 font-body text-xs text-steel-light">
+              <HardDrive className="h-3.5 w-3.5 shrink-0" />
+              첨부 사진 <span className="text-paper">{photoUsage.count}장</span> ·
+              저장 용량 <span className="text-paper">{formatBytes(photoUsage.totalBytes)}</span>
+              <span className="text-steel">
+                (사진은 DB에 함께 저장되며, 업로드 시 장당 약 200KB로 압축됩니다)
+              </span>
+            </p>
+          )}
         </>
       )}
     </div>

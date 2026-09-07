@@ -11,13 +11,8 @@ import { WorkerRegistration, WorkerBar } from "./WorkerIdentity";
 import { Worker } from "@/lib/types";
 import { useLanguage } from "@/lib/useLanguage";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
-import {
-  submitReport,
-  loadStoredWorker,
-  saveStoredWorker,
-  clearStoredWorker,
-  compressImage,
-} from "@/lib/utils";
+import { submitReport } from "@/lib/api";
+import { loadStoredWorker, saveStoredWorker, clearStoredWorker, compressImage } from "@/lib/clientStorage";
 import { useSpeechRecognition } from "@/lib/useSpeechRecognition";
 
 type SubmitState = "idle" | "submitting" | "done" | "error";

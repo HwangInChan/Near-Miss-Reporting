@@ -5,7 +5,7 @@ import { UserRound, Hash } from "lucide-react";
 import { Worker } from "@/lib/types";
 import { Lang, getDictionary } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
-import { registerWorkerApi } from "@/lib/utils";
+import { registerWorkerApi } from "@/lib/api";
 
 /**
  * 사번 등록 화면.

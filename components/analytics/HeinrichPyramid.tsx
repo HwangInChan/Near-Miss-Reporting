@@ -1,5 +1,5 @@
 import { HEINRICH_RATIO } from "@/lib/constants";
-import { computeHeinrichProjection } from "@/lib/utils";
+import { computeHeinrichProjection } from "@/lib/stats";
 
 interface HeinrichPyramidProps {
   nearMissCount: number;

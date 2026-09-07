@@ -1,19 +1,16 @@
-import {
-  ContributingFactor,
-  HeatmapCell,
-  HumanErrorType,
-  NearMissReport,
-  RewardRanking,
-  Severity,
-  Worker,
-} from "./types";
-import { FACTORY_ZONES, HEINRICH_RATIO, SEVERITY_COLOR } from "./constants";
+import { NearMissReport, Severity } from "./types";
+import { SEVERITY_COLOR } from "./constants";
 
 /**
  * ============================================================
- * 공통 유틸 모음
- * 프로젝트 전역에서 재사용하는 함수는 이 파일 하나에만 정의한다.
- * (컴포넌트별로 흩어지는 것을 방지 → 유지보수 포인트 단일화)
+ * 범용 유틸
+ *
+ * 특정 도메인에 묶이지 않는 작은 헬퍼만 둔다.
+ * 성격이 뚜렷한 것들은 별도 파일로 분리했다.
+ *   - lib/api.ts           서버 API 호출
+ *   - lib/stats.ts         집계·예측 계산
+ *   - lib/clientStorage.ts 브라우저 저장소·이미지 압축
+ *   - lib/riskAssessment.ts 위험성평가
  * ============================================================
  */
 
@@ -60,182 +57,16 @@ export function formatDateTime(isoString: string): string {
   });
 }
 
-// ---------- 심각도 관련 ----------
+/** 바이트를 사람이 읽기 쉬운 단위로 (예: 1.2 MB) */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// ---------- 심각도 ----------
 export function severityLabel(s: Severity): string {
   return SEVERITY_COLOR[s].label;
-}
-
-export function severityTextColor(s: Severity): string {
-  return SEVERITY_COLOR[s].text;
-}
-
-// ---------- 집계 함수 ----------
-
-/** 인적 오류 유형별 건수 집계 (도넛 차트용) */
-export function countByHumanError(
-  reports: NearMissReport[]
-): { type: HumanErrorType; count: number }[] {
-  const types: HumanErrorType[] = ["실수", "망각", "착오", "위반"];
-  return types.map((type) => ({
-    type,
-    count: reports.filter((r) => r.humanErrorType === type).length,
-  }));
-}
-
-/** 배후 요인별 건수 집계 (막대/체크박스 통계용) */
-export function countByContributingFactor(
-  reports: NearMissReport[]
-): { factor: ContributingFactor; count: number }[] {
-  const counter = new Map<ContributingFactor, number>();
-  reports.forEach((r) =>
-    r.contributingFactors.forEach((f) =>
-      counter.set(f, (counter.get(f) ?? 0) + 1)
-    )
-  );
-  return Array.from(counter.entries())
-    .map(([factor, count]) => ({ factor, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-/** 구역별 발생 건수를 히트맵 좌표 데이터로 변환 */
-export function aggregateHeatmap(reports: NearMissReport[]): HeatmapCell[] {
-  return FACTORY_ZONES.map((zone) => ({
-    zoneId: zone.id,
-    zoneLabel: zone.label,
-    gridX: zone.gridX,
-    gridY: zone.gridY,
-    count: reports.filter((r) => r.zoneId === zone.id).length,
-  }));
-}
-
-/** 히트맵 강도(0~1)를 계산 — 최댓값 대비 상대 비율 */
-export function heatIntensity(count: number, maxCount: number): number {
-  if (maxCount <= 0) return 0;
-  return Math.min(1, count / maxCount);
-}
-
-/** 강도(0~1)를 신호등 계열 컬러(hex)로 변환: 녹색 → 노랑 → 빨강 */
-export function intensityToColor(intensity: number): string {
-  if (intensity <= 0) return "#22272C"; // ink.softer (데이터 없음)
-  if (intensity < 0.4) return "#22C55E"; // safety.green
-  if (intensity < 0.7) return "#FFC107"; // safety.yellow
-  return "#E53935"; // safety.red
-}
-
-/**
- * 최근 발생 속도를 근거로 임계점 도달 시점을 추정한다.
- *
- * 최근 `windowDays`일간의 신고 건수로 하루 평균 발생률을 구한 뒤,
- * 남은 건수를 그 속도로 나눠 며칠 뒤 임계점에 닿을지 외삽한다.
- * 단순 선형 외삽이므로 정밀 예측이 아니라 "이 추세면 언제쯤"이라는
- * 경보용 지표로만 쓴다.
- */
-export function forecastThresholdArrival(
-  reports: NearMissReport[],
-  threshold: number,
-  windowDays = 14
-) {
-  const total = reports.length;
-  const remaining = threshold - total;
-
-  if (remaining <= 0) {
-    return { alreadyReached: true, perDay: 0, daysLeft: 0, hasEnoughData: true };
-  }
-
-  const cutoff = Date.now() - windowDays * 86400000;
-  const recentCount = reports.filter(
-    (r) => new Date(r.createdAt).getTime() >= cutoff
-  ).length;
-  const perDay = recentCount / windowDays;
-
-  // 최근 기간에 신고가 거의 없으면 외삽이 무의미하다.
-  if (recentCount < 2 || perDay <= 0) {
-    return { alreadyReached: false, perDay, daysLeft: null, hasEnoughData: false };
-  }
-
-  return {
-    alreadyReached: false,
-    perDay: Math.round(perDay * 10) / 10,
-    daysLeft: Math.ceil(remaining / perDay),
-    hasEnoughData: true,
-  };
-}
-
-/**
- * 하인리히 1:29:300 법칙 기반 진행률 계산.
- * 현재 아차사고 건수를 기준으로, 통계적으로 상응하는
- * 경미 사고/중대재해 "예상치"와 임계 도달률(%)을 함께 반환한다.
- */
-export function computeHeinrichProjection(nearMissCount: number, thresholdCount: number) {
-  const ratio = HEINRICH_RATIO;
-  const projectedMinor = nearMissCount / (ratio.nearMiss / ratio.minorAccident);
-  const projectedMajor = nearMissCount / (ratio.nearMiss / ratio.majorAccident);
-  const progressToThreshold = Math.min(1, nearMissCount / thresholdCount);
-  return {
-    projectedMinor: Math.round(projectedMinor * 10) / 10,
-    projectedMajor: Math.round(projectedMajor * 100) / 100,
-    progressToThreshold, // 0~1
-  };
-}
-
-// ---------- API 클라이언트 (브라우저 → /api/reports) ----------
-// 작업자 화면(ReportForm)과 관리자 대시보드(DashboardClient)가 공통으로 사용하는
-// fetch 래퍼. 두 화면 모두 이 함수들을 통해서만 서버(DB)와 통신한다.
-
-export interface CreateReportPayload {
-  zoneId: string;
-  transcript: string;
-  /** 압축된 이미지 data URL. compressImage()의 결과를 그대로 넣는다. */
-  photoDataUrl?: string;
-  employeeId?: string;
-  /** 서버에 사번이 없을 때 자동 등록하기 위한 이름 */
-  employeeName?: string;
-  isAnonymous?: boolean;
-}
-
-export interface UpdateReportPayload {
-  status?: NearMissReport["status"];
-  humanErrorType?: HumanErrorType;
-  contributingFactors?: ContributingFactor[];
-  isExemplary?: boolean;
-  severity?: Severity;
-}
-
-async function parseJsonOrThrow(response: Response) {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.error ?? `요청이 실패했습니다 (${response.status})`);
-  }
-  return data;
-}
-
-export async function fetchReports(): Promise<NearMissReport[]> {
-  const res = await fetch("/api/reports", { cache: "no-store" });
-  const data = await parseJsonOrThrow(res);
-  return data.reports as NearMissReport[];
-}
-
-export async function submitReport(payload: CreateReportPayload): Promise<NearMissReport> {
-  const res = await fetch("/api/reports", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await parseJsonOrThrow(res);
-  return data.report as NearMissReport;
-}
-
-export async function patchReport(
-  id: string,
-  payload: UpdateReportPayload
-): Promise<NearMissReport> {
-  const res = await fetch(`/api/reports/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await parseJsonOrThrow(res);
-  return data.report as NearMissReport;
 }
 
 /**
@@ -245,115 +76,4 @@ export async function patchReport(
  */
 export function toggleResolvedStatus(current: NearMissReport["status"]): NearMissReport["status"] {
   return current === "조치완료" ? "분석중" : "조치완료";
-}
-
-// ---------- 작업자(사번) / 포상 관련 API ----------
-
-/** 내가 낸 기명 신고 이력만 조회 */
-export async function fetchMyReports(employeeId: string): Promise<NearMissReport[]> {
-  const res = await fetch(`/api/reports?employeeId=${encodeURIComponent(employeeId)}`, {
-    cache: "no-store",
-  });
-  const data = await parseJsonOrThrow(res);
-  return data.reports as NearMissReport[];
-}
-
-export async function registerWorkerApi(employeeId: string, name: string): Promise<Worker> {
-  const res = await fetch("/api/workers", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ employeeId, name }),
-  });
-  const data = await parseJsonOrThrow(res);
-  return data.worker as Worker;
-}
-
-export async function fetchRewardRankings(): Promise<RewardRanking[]> {
-  const res = await fetch("/api/rankings", { cache: "no-store" });
-  const data = await parseJsonOrThrow(res);
-  return data.rankings as RewardRanking[];
-}
-
-export async function fetchFactorStats(): Promise<{ factor: string; count: number }[]> {
-  const res = await fetch("/api/factor-stats", { cache: "no-store" });
-  const data = await parseJsonOrThrow(res);
-  return data.stats as { factor: string; count: number }[];
-}
-
-// ---------- 이미지 압축 ----------
-
-/**
- * 촬영한 사진을 업로드 전에 리사이즈·압축해 data URL로 만든다.
- *
- * 요즘 스마트폰 사진은 한 장에 3~8MB라 원본을 그대로 DB에 넣으면 금세 비대해지고
- * 느린 현장 네트워크에서 업로드도 오래 걸린다. 아차사고 기록용으로는 "무엇이
- * 문제인지 알아볼 수 있는" 수준이면 충분하므로 긴 변 1280px, JPEG 품질 0.7로
- * 줄인다 (보통 150~300KB).
- */
-export function compressImage(
-  file: File,
-  maxEdge = 1280,
-  quality = 0.7
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("이미지를 처리할 수 없습니다."));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("이미지를 읽을 수 없습니다."));
-    };
-
-    img.src = url;
-  });
-}
-
-// ---------- 작업자 신원의 기기 저장 ----------
-// 사번을 매번 입력하지 않도록 브라우저 localStorage에 기억해둔다.
-// (서버 세션/로그인이 아니라 "이 기기에서 쓰는 사람" 정도의 가벼운 식별)
-
-const WORKER_STORAGE_KEY = "nearmiss.worker";
-
-export function loadStoredWorker(): Worker | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(WORKER_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Worker) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveStoredWorker(worker: Worker): void {
-  try {
-    window.localStorage.setItem(WORKER_STORAGE_KEY, JSON.stringify(worker));
-  } catch {
-    // 사생활 보호 모드 등으로 저장이 막혀도 앱 동작 자체는 계속되어야 한다.
-  }
-}
-
-export function clearStoredWorker(): void {
-  try {
-    window.localStorage.removeItem(WORKER_STORAGE_KEY);
-  } catch {
-    // 무시
-  }
 }

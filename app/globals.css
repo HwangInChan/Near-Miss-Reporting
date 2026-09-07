@@ -33,3 +33,114 @@ body {
 ::-webkit-scrollbar-track {
   background-color: transparent;
 }
+
+/* ============================================================
+   인쇄 스타일 (개선계획서)
+
+   화면은 현장에서 보기 좋은 다크 테마지만, 인쇄물은 종이에 찍히므로
+   흰 배경·검정 글자로 완전히 바꾼다. 어두운 배경을 그대로 인쇄하면
+   토너만 낭비되고 읽기도 어렵다.
+   브라우저의 "대상: PDF로 저장"을 고르면 그대로 PDF가 된다.
+   ============================================================ */
+@media print {
+  /* 화면용 UI는 전부 숨기고 계획서만 남긴다 */
+  body > * {
+    display: none !important;
+  }
+
+  #improvement-plan-print {
+    display: block !important;
+    position: static;
+    background: #fff;
+    color: #000;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  #improvement-plan-print h1 {
+    font-size: 16pt;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #000;
+  }
+
+  #improvement-plan-print h2 {
+    font-size: 12pt;
+    margin: 0 0 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid #000;
+    padding-bottom: 4px;
+  }
+
+  #improvement-plan-print h3 {
+    font-size: 10pt;
+    margin: 10px 0 4px;
+  }
+
+  #improvement-plan-print .grade {
+    font-size: 10pt;
+    font-weight: normal;
+    padding: 1px 6px;
+    border: 1px solid #000;
+  }
+  /* 등급은 색 대신 굵기·테두리로 구분한다 (흑백 인쇄 대비) */
+  #improvement-plan-print .grade-높음 {
+    font-weight: bold;
+    border-width: 2px;
+  }
+
+  #improvement-plan-print table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+
+  #improvement-plan-print th,
+  #improvement-plan-print td {
+    border: 1px solid #666;
+    padding: 4px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  #improvement-plan-print th {
+    background: #f0f0f0;
+    font-weight: normal;
+    white-space: nowrap;
+  }
+
+  #improvement-plan-print .zone {
+    margin-bottom: 16px;
+    /* 구역 하나가 페이지 중간에서 잘리지 않도록 */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #improvement-plan-print .note,
+  #improvement-plan-print .advice {
+    font-size: 9pt;
+    margin: 6px 0;
+  }
+
+  #improvement-plan-print footer {
+    margin-top: 24px;
+    border-top: 1px solid #000;
+    padding-top: 8px;
+  }
+
+  #improvement-plan-print .sign td {
+    height: 40px;
+  }
+}

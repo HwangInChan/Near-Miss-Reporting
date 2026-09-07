@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { HeatmapCell } from "@/lib/types";
-import { heatIntensity, intensityToColor } from "@/lib/utils";
+import { heatIntensity, intensityToColor } from "@/lib/stats";
 
 interface RiskHeatmapProps {
   cells: HeatmapCell[];
