@@ -38,13 +38,16 @@ export function RiskPriorityPanel({ priorities }: RiskPriorityPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex flex-col gap-2">
       {/*
-       * min-h-0 + flex-1: 이 목록이 "필요한 높이"를 주장하지 않게 만든다.
-       * 그래야 행 높이를 왼쪽 매트릭스 카드가 결정하고, 이 목록은 남는 높이에
-       * 맞춰 스크롤된다. 항목을 펼쳐도 카드 높이가 변하지 않는다.
+       * 고정된 max-height가 핵심이다.
+       * 이게 없으면 항목을 펼칠 때 이 카드가 커지고, 같은 그리드 행의 위험성
+       * 매트릭스 카드까지 그 높이에 맞춰 늘어나 매트릭스 격자가 세로로 찌그러진다.
+       * 높이를 고정하면 펼치든 접든 카드 높이가 일정해 옆 카드가 영향을 받지 않는다.
+       * (min-h-0/flex-1만으로는 부족하다. 그리드 행 높이는 자식의 콘텐츠 높이로
+       *  자동 결정되므로, 명시적 상한이 있어야 실제로 억제된다.)
        */}
-      <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+      <ul className="flex max-h-[440px] flex-col gap-2 overflow-y-auto pr-1">
         {priorities.map((z, i) => {
           const style = gradeStyle(z.grade);
           const isOpen = expandedId === z.zoneId;

@@ -12,14 +12,17 @@ const rand = mulberry32(20240517);
 const HUMAN_ERROR_TYPES: HumanErrorType[] = ["실수", "망각", "착오", "위반"];
 const SEVERITIES: Severity[] = ["low", "medium", "high"];
 const ALL_FACTORS: ContributingFactor[] = [
+  "설비·방호장치 결함",
+  "작업 절차 미비·불명확",
   "조도 부족",
-  "야간/교대조",
-  "피로 누적",
   "소음",
-  "작업 절차 미숙지",
-  "보호구 미착용",
-  "정리정돈 불량",
+  "의사소통·신호 미흡",
+  "환기·유해물질",
+  "정리정돈·바닥 상태 불량",
+  "야간·교대 근무",
+  "피로 누적",
   "작업 압박(시간)",
+  "보호구 미지급·불편",
 ];
 
 const TRANSCRIPT_SAMPLES = [

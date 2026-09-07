@@ -17,25 +17,28 @@ export const HUMAN_ERROR_TYPES: HumanErrorType[] = [
 ];
 
 // 배후 요인 (Contributing / Latent Factors)
-export type ContributingFactor =
-  | "조도 부족"
-  | "야간/교대조"
-  | "피로 누적"
-  | "소음"
-  | "작업 절차 미숙지"
-  | "보호구 미착용"
-  | "정리정돈 불량"
-  | "작업 압박(시간)";
+//
+// Reason의 스위스 치즈 모델에서 말하는 "잠재 조건(latent condition)"에 해당한다.
+// 중요한 원칙은 **불안전한 행동이 아니라 그 행동을 유발한 조건**을 담아야 한다는 것이다.
+// 예컨대 "보호구 미착용"은 행동이므로 배후 요인이 될 수 없다. 왜 착용하지 않았는지
+// (지급되지 않았는지, 불편했는지)가 잠재 조건이다.
+//
+// 자유 입력("기타")을 허용하기 위해 string으로 둔다. CONTRIBUTING_FACTORS는
+// 화면에 기본 제공되는 선택지이며, 여기에 없는 값도 저장될 수 있다.
+export type ContributingFactor = string;
 
 export const CONTRIBUTING_FACTORS: ContributingFactor[] = [
+  "설비·방호장치 결함",
+  "작업 절차 미비·불명확",
   "조도 부족",
-  "야간/교대조",
-  "피로 누적",
   "소음",
-  "작업 절차 미숙지",
-  "보호구 미착용",
-  "정리정돈 불량",
+  "의사소통·신호 미흡",
+  "환기·유해물질",
+  "정리정돈·바닥 상태 불량",
+  "야간·교대 근무",
+  "피로 누적",
   "작업 압박(시간)",
+  "보호구 미지급·불편",
 ];
 
 // 처리 상태
