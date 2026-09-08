@@ -1,3 +1,4 @@
+import { AssessmentSettings } from "./assessmentSettings";
 import {
   ContributingFactor,
   HumanErrorType,
@@ -119,4 +120,30 @@ export async function fetchPhotoUsage(): Promise<PhotoStorageUsage> {
   const res = await fetch("/api/storage-usage", { cache: "no-store" });
   const data = await parseJsonOrThrow(res);
   return data.usage as PhotoStorageUsage;
+}
+
+/* ---------- 사업장 평가 기준값 ---------- */
+
+export async function fetchAssessmentSettings(): Promise<AssessmentSettings> {
+  const res = await fetch("/api/settings", { cache: "no-store" });
+  const data = await parseJsonOrThrow(res);
+  return data.settings as AssessmentSettings;
+}
+
+export async function saveAssessmentSettingsApi(
+  settings: AssessmentSettings
+): Promise<AssessmentSettings> {
+  const res = await fetch("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  const data = await parseJsonOrThrow(res);
+  return data.settings as AssessmentSettings;
+}
+
+export async function resetAssessmentSettings(): Promise<AssessmentSettings> {
+  const res = await fetch("/api/settings", { method: "DELETE" });
+  const data = await parseJsonOrThrow(res);
+  return data.settings as AssessmentSettings;
 }

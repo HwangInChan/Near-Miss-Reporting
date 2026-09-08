@@ -1,16 +1,17 @@
 import { AlertTriangle, CalendarClock, TrendingUp } from "lucide-react";
-import { NEAR_MISS_ALERT_THRESHOLD } from "@/lib/constants";
 import { NearMissReport } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { forecastThresholdArrival } from "@/lib/stats";
 
 interface ThresholdAlertWidgetProps {
   reports: NearMissReport[];
+  /** 사업장별로 설정된 임계점 (기본 50건) */
+  threshold: number;
 }
 
-export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
+export function ThresholdAlertWidget({ reports, threshold }: ThresholdAlertWidgetProps) {
   const currentCount = reports.length;
-  const ratio = currentCount / NEAR_MISS_ALERT_THRESHOLD;
+  const ratio = currentCount / threshold;
   const reached = ratio >= 1;
   const approaching = ratio >= 0.8 && !reached;
 
@@ -21,7 +22,7 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
       ? "임계점 근접"
       : "정상 범위";
 
-  const forecast = forecastThresholdArrival(reports, NEAR_MISS_ALERT_THRESHOLD);
+  const forecast = forecastThresholdArrival(reports, threshold);
 
   return (
     <div className="flex flex-col gap-3">
@@ -41,7 +42,7 @@ export function ThresholdAlertWidget({ reports }: ThresholdAlertWidgetProps) {
 
         <div className="flex-1">
           <p className="font-display text-lg tracking-wide text-paper">
-            {currentCount} / {NEAR_MISS_ALERT_THRESHOLD}건
+            {currentCount} / {threshold}건
           </p>
           <p className="font-body text-xs" style={{ color: stateColor }}>
             {stateLabel}

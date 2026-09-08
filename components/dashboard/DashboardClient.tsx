@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NearMissReport, RewardRanking } from "@/lib/types";
 import {
+  fetchAssessmentSettings,
   fetchFactorStats,
   fetchPhotoUsage,
   fetchReports,
@@ -11,7 +12,6 @@ import {
   type PhotoStorageUsage,
 } from "@/lib/api";
 import { aggregateHeatmap, countByHumanError } from "@/lib/stats";
-import { NEAR_MISS_ALERT_THRESHOLD } from "@/lib/constants";
 import { formatBytes } from "@/lib/utils";
 import { PanelCard } from "@/components/common/PanelCard";
 import { ReportList } from "./ReportList";
@@ -27,6 +27,11 @@ import { RiskPriorityPanel } from "./RiskPriorityPanel";
 import { assessZoneRisks, prioritizeZones } from "@/lib/riskAssessment";
 import { RefreshCw, LogOut, Printer, HardDrive } from "lucide-react";
 import { AdminGate, useAdminGate } from "./AdminGate";
+import { AssessmentSettingsPanel } from "./AssessmentSettingsPanel";
+import {
+  AssessmentSettings,
+  DEFAULT_ASSESSMENT_SETTINGS,
+} from "@/lib/assessmentSettings";
 import { ImprovementPlanPrint } from "./ImprovementPlanPrint";
 
 // 작업자 화면에서 새 리포트가 접수되는 것을 "실시간처럼" 반영하기 위한 폴링 주기.
@@ -45,6 +50,7 @@ export function DashboardClient() {
   const [rankings, setRankings] = useState<RewardRanking[]>([]);
   const [factorStats, setFactorStats] = useState<{ factor: string; count: number }[]>([]);
   const [photoUsage, setPhotoUsage] = useState<PhotoStorageUsage | null>(null);
+  const [settings, setSettings] = useState<AssessmentSettings>(DEFAULT_ASSESSMENT_SETTINGS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -53,16 +59,18 @@ export function DashboardClient() {
   const loadReports = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsRefreshing(true);
     try {
-      const [data, rankingData, factorData, usage] = await Promise.all([
+      const [data, rankingData, factorData, usage, settingData] = await Promise.all([
         fetchReports(),
         fetchRewardRankings(),
         fetchFactorStats(),
         fetchPhotoUsage(),
+        fetchAssessmentSettings(),
       ]);
       setReports(data);
       setRankings(rankingData);
       setFactorStats(factorData);
       setPhotoUsage(usage);
+      setSettings(settingData);
       setErrorMessage("");
       // 주의: 여기서 첫 리포트를 자동으로 선택하지 않는다.
       // 예전에는 setSelectedId((prev) => prev ?? data[0]?.id ?? null) 로
@@ -141,7 +149,7 @@ export function DashboardClient() {
 
   const heatmapCells = useMemo(() => aggregateHeatmap(reports), [reports]);
   // 위험성평가는 이미 불러온 reports로 계산한다 (추가 DB 조회 없음).
-  const riskAssessments = useMemo(() => assessZoneRisks(reports), [reports]);
+  const riskAssessments = useMemo(() => assessZoneRisks(reports, settings), [reports, settings]);
   const riskPriorities = useMemo(() => prioritizeZones(riskAssessments), [riskAssessments]);
   const errorTypeData = useMemo(() => countByHumanError(reports), [reports]);
 
@@ -213,8 +221,8 @@ export function DashboardClient() {
         <>
           {/* 경보·예측·분포 위젯 4종 - 넓은 화면에서 한 줄, 좁아지면 자동으로 줄바꿈 */}
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <PanelCard title="임계점 경보" subtitle={`아차사고 ${NEAR_MISS_ALERT_THRESHOLD}건 도달 시 점등`}>
-              <ThresholdAlertWidget reports={reports} />
+            <PanelCard title="임계점 경보" subtitle={`아차사고 ${settings.alertThreshold}건 도달 시 점등`}>
+              <ThresholdAlertWidget reports={reports} threshold={settings.alertThreshold} />
             </PanelCard>
             <PanelCard title="하인리히 1:29:300" subtitle="아차사고 기반 사고 예측">
               <HeinrichPyramid nearMissCount={reports.length} />
@@ -278,6 +286,16 @@ export function DashboardClient() {
               subtitle="기명 신고 기준 · 우수 신고 수 우선 정렬"
             >
               <RewardRankingPanel rankings={rankings} />
+            </PanelCard>
+          </div>
+
+          {/* 사업장별 평가 기준값 설정 */}
+          <div className="mt-4">
+            <PanelCard
+              title="평가 기준값 설정"
+              subtitle="사업장 규모에 맞게 판정 경계를 조정합니다"
+            >
+              <AssessmentSettingsPanel settings={settings} onChange={setSettings} />
             </PanelCard>
           </div>
 

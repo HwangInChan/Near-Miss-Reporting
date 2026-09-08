@@ -35,6 +35,8 @@ export const HEINRICH_RATIO = {
  *  예방 목적에 맞지 않으므로 그보다 훨씬 이른 시점을 임계점으로 잡았다.)
  * 실제 도입 시에는 사업장 규모·근로자 수·과거 재해 이력을 반영해 조정해야 한다.
  */
+/** @deprecated 사업장별 설정값(lib/assessmentSettings.ts)으로 이관되었다.
+ *  하위 호환을 위해 남겨두었으나 새 코드에서는 설정값을 사용할 것. */
 export const NEAR_MISS_ALERT_THRESHOLD = 50;
 
 export const REPORT_STATUS_ORDER = ["미분류", "분석중", "조치완료"] as const;

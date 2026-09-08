@@ -74,6 +74,18 @@ const SCHEMA = [
    * 목록 조회 때마다 수십 건의 이미지 바이트가 통째로 딸려온다.
    * 사진은 상세 화면에서 한 건씩만 필요하다.
    */
+  /*
+   * 사업장별 평가 기준값.
+   * 위험성평가의 판정 경계(가능성 최소 건수, 임계점 등)는 표준으로 정해진 수치가
+   * 아니라 사업장이 스스로 정하는 관리 기준이다. 근로자 수·운영 기간·업종 위험도에
+   * 따라 달라야 하므로 코드 상수가 아니라 DB에 두고 화면에서 조정할 수 있게 한다.
+   * key-value 형태로 두어 기준이 추가돼도 스키마를 바꾸지 않아도 되게 했다.
+   */
+  `CREATE TABLE IF NOT EXISTS settings (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   )`,
   `CREATE TABLE IF NOT EXISTS report_photos (
      report_id TEXT PRIMARY KEY,
      mime_type TEXT NOT NULL,

@@ -1,5 +1,9 @@
 import { NearMissReport, ContributingFactor, HumanErrorType } from "./types";
 import { FACTORY_ZONES } from "./constants";
+import {
+  AssessmentSettings,
+  DEFAULT_ASSESSMENT_SETTINGS,
+} from "./assessmentSettings";
 
 /**
  * ============================================================
@@ -179,7 +183,10 @@ const SEVERITY_LABEL = ["", "소 (경미)", "중 (주의)", "대 (위험)"];
  *   위험성평가는 "예상되는 최악의 결과"로 중대성을 판단하며, 평균을 쓰면
  *   경미 사고 다수에 묻혀 중대재해 가능성이 희석되기 때문이다.
  */
-export function assessZoneRisks(reports: NearMissReport[]): ZoneRiskAssessment[] {
+export function assessZoneRisks(
+  reports: NearMissReport[],
+  settings: AssessmentSettings = DEFAULT_ASSESSMENT_SETTINGS
+): ZoneRiskAssessment[] {
   const totalZones = FACTORY_ZONES.length;
   const average = reports.length / totalZones;
 
@@ -189,15 +196,16 @@ export function assessZoneRisks(reports: NearMissReport[]): ZoneRiskAssessment[]
 
     // --- 가능성 (빈도) ---
     // 평균 대비 상대 기준을 쓰되, 절대 최소 건수 조건을 함께 건다.
+    //
     // 상대 기준만 쓰면 데이터가 적을 때(예: 전체 1건) 그 1건이 평균의 9배가 되어
     // "빈번"으로 판정되는 통계적 불안정성이 생긴다. 아차사고 1건으로 반복성을
     // 주장할 수는 없으므로, 반복이라 부를 최소 횟수를 함께 요구한다.
-    const MIN_FOR_FREQUENT = 3; // 가능성 '상'으로 보려면 최소 3건
-    const MIN_FOR_OCCASIONAL = 2; // 가능성 '중'으로 보려면 최소 2건
-
+    //
+    // 이 최소 건수는 사업장 규모에 따라 달라야 하므로 설정값으로 받는다.
+    // (소규모에서는 3건도 유의미하지만, 대규모에서는 노이즈에 가깝다)
     let likelihood = 1;
-    if (count >= Math.max(average * 2, MIN_FOR_FREQUENT)) likelihood = 3;
-    else if (count >= Math.max(average, MIN_FOR_OCCASIONAL)) likelihood = 2;
+    if (count >= Math.max(average * 2, settings.minForFrequent)) likelihood = 3;
+    else if (count >= Math.max(average, settings.minForOccasional)) likelihood = 2;
 
     // --- 중대성 (강도): 관측된 최대 심각도 ---
     let severity = 1;

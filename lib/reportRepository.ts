@@ -10,6 +10,10 @@ import {
   Worker,
 } from "./types";
 import { DUMMY_REPORTS, DUMMY_WORKERS } from "./dummyData";
+import {
+  AssessmentSettings,
+  DEFAULT_ASSESSMENT_SETTINGS,
+} from "./assessmentSettings";
 
 /**
  * DB 접근은 이 파일을 통해서만 이루어진다 (Repository 패턴).
@@ -416,4 +420,40 @@ export async function getContributingFactorStats(): Promise<
   return Array.from(counter.entries())
     .map(([factor, count]) => ({ factor, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+/* ============================================================
+ * 사업장별 평가 기준값 (settings 테이블)
+ * ============================================================ */
+
+const SETTINGS_KEY = "assessment";
+
+/** 저장된 기준값을 읽는다. 없거나 손상됐으면 기본값을 돌려준다. */
+export async function getAssessmentSettings(): Promise<AssessmentSettings> {
+  const db = await getDb();
+  const res = await db.execute({
+    sql: "SELECT value FROM settings WHERE key = ?",
+    args: [SETTINGS_KEY],
+  });
+  if (!res.rows.length) return DEFAULT_ASSESSMENT_SETTINGS;
+
+  try {
+    const parsed = JSON.parse(toStr((res.rows[0] as Row).value)) as Partial<AssessmentSettings>;
+    // 일부 항목만 저장되어 있어도 나머지는 기본값으로 채운다.
+    return { ...DEFAULT_ASSESSMENT_SETTINGS, ...parsed };
+  } catch {
+    return DEFAULT_ASSESSMENT_SETTINGS;
+  }
+}
+
+export async function saveAssessmentSettings(
+  settings: AssessmentSettings
+): Promise<AssessmentSettings> {
+  const db = await getDb();
+  await db.execute({
+    sql: `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    args: [SETTINGS_KEY, JSON.stringify(settings), new Date().toISOString()],
+  });
+  return settings;
 }
