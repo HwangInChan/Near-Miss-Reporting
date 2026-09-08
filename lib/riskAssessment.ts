@@ -55,8 +55,10 @@ export interface ZoneRiskAssessment {
   dominantErrorType?: HumanErrorType;
   /** 배후 요인에서 도출한 권고 대책 (근본적인 것부터) */
   measures: ControlMeasure[];
-  /** 인적 오류 유형에 따른 접근 방향 조언 */
+  /** 인적 오류 유형에 따른 접근 방향 조언 (화면용, 조언체) */
   errorTypeAdvice?: string;
+  /** 같은 내용의 인쇄용 서술형 문구 (개선계획서에 실린다) */
+  errorTypeNote?: string;
 }
 
 /**
@@ -130,6 +132,21 @@ const ERROR_TYPE_ADVICE: Record<HumanErrorType, string> = {
   망각: "절차를 기억에 의존시키지 마세요. 체크리스트, 시각적 표시, 강제 확인 단계를 공정에 삽입하는 것이 효과적입니다.",
   착오: "판단 자체가 틀린 경우이므로 작업표준의 명확성과 교육 내용을 재검토해야 합니다. 애매한 지시·기준이 없는지 확인하세요.",
   위반: "규정을 몰라서가 아니라 지키기 어려운 여건일 가능성이 큽니다. 처벌보다 왜 우회하게 되는지(시간 압박, 불편한 보호구)를 먼저 파악하세요.",
+};
+
+/**
+ * 인쇄용 문구.
+ *
+ * 화면(ERROR_TYPE_ADVICE)은 시스템이 관리자에게 건네는 조언이므로 "~하세요"가 자연스럽다.
+ * 그러나 개선계획서는 **안전관리자가 작성해 결재를 올리는 문서**다. 작성자가 자기
+ * 문서에서 자신에게 지시받는 형식이 되면 어색하고, 결재자가 읽기에도 부적절하다.
+ * 그래서 인쇄본은 판단을 기술하는 서술형(개조식)으로 따로 둔다.
+ */
+const ERROR_TYPE_NOTE: Record<HumanErrorType, string> = {
+  실수: "주의력에 의존한 교육만으로는 재발 방지 효과를 기대하기 어려움. 잘못된 동작이 물리적으로 불가능하도록 인터록·방호덮개 등 공학적 방호 적용이 요구됨.",
+  망각: "절차 이행을 기억에 의존시키지 않도록 체크리스트·시각적 표시·강제 확인 단계를 공정에 삽입할 필요가 있음.",
+  착오: "판단 단계에서 발생한 오류로, 작업표준의 명확성 및 교육 내용에 대한 재검토가 필요함. 모호한 지시·기준의 존재 여부 확인 요망.",
+  위반: "규정 인지 부족이 아닌 준수 곤란 여건에 기인할 가능성이 높음. 시간 압박, 보호구 불편 등 절차를 우회하게 만드는 요인의 우선 파악이 필요함.",
 };
 
 const GRADE_STYLE: Record<RiskGrade, { color: string; container: string; action: string }> = {
@@ -241,6 +258,7 @@ export function assessZoneRisks(reports: NearMissReport[]): ZoneRiskAssessment[]
       dominantErrorType,
       measures: measures.slice(0, 4),
       errorTypeAdvice: dominantErrorType ? ERROR_TYPE_ADVICE[dominantErrorType] : undefined,
+      errorTypeNote: dominantErrorType ? ERROR_TYPE_NOTE[dominantErrorType] : undefined,
     };
   });
 }

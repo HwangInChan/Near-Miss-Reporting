@@ -57,10 +57,10 @@ export function ImprovementPlanPrint({
           </tbody>
         </table>
         <p className="note">
-          위험성 = 가능성(빈도) × 중대성(강도). 각 1~3점, 최대 9점.
+          산출 기준 — 위험성 = 가능성(빈도) × 중대성(강도), 각 1~3점(최대 9점).
           6점 이상 &lsquo;높음&rsquo;은 즉시 개선, 3~4점 &lsquo;보통&rsquo;은 개선계획 수립,
-          1~2점 &lsquo;낮음&rsquo;은 현 수준 유지·관리 대상입니다.
-          중대성은 해당 구역에서 관측된 최대 심각도를 적용했습니다.
+          1~2점 &lsquo;낮음&rsquo;은 현 수준 유지·관리 대상. 중대성은 해당 구역에서 관측된
+          최대 심각도를 적용함.
         </p>
       </header>
 
@@ -128,9 +128,9 @@ export function ImprovementPlanPrint({
             </>
           )}
 
-          {z.errorTypeAdvice && (
+          {z.errorTypeNote && (
             <p className="advice">
-              <strong>검토 의견:</strong> {z.errorTypeAdvice}
+              <strong>분석 의견:</strong> {z.errorTypeNote}
             </p>
           )}
         </section>
@@ -138,8 +138,8 @@ export function ImprovementPlanPrint({
 
       <footer>
         <p>
-          본 계획서는 접수된 아차사고 데이터로부터 자동 산출되었습니다.
-          현장 확인을 거쳐 담당자와 완료 예정일을 기입한 뒤 사용하십시오.
+          본 계획서의 위험성 평가 결과 및 권고 대책은 접수된 아차사고 데이터로부터
+          산출된 것으로, 현장 확인을 거쳐 담당자 및 완료 예정일을 확정한 후 시행함.
         </p>
         <table className="sign">
           <tbody>
