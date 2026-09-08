@@ -9,7 +9,7 @@ import {
  * ============================================================
  * 위험성평가(Risk Assessment) 기반 개선 우선순위 도출
  *
- * 산업안전보건법 제36조 및 KOSHA 위험성평가 지침의 기본 구조를 따른다.
+ * 산업안전보건법상 의무화된 위험성평가에서 일반적으로 쓰이는 구조를 따른다.
  *
  *   위험성(Risk) = 가능성(빈도, Likelihood) × 중대성(강도, Severity)
  *
@@ -163,7 +163,7 @@ export function gradeStyle(grade: RiskGrade) {
   return GRADE_STYLE[grade];
 }
 
-/** 위험성 점수 → 등급 판정 (KOSHA 3×3 매트릭스 기준) */
+/** 위험성 점수 → 등급 판정 (3×3 매트릭스) */
 function toGrade(score: number): RiskGrade {
   if (score >= 6) return "높음";
   if (score >= 3) return "보통";

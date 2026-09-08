@@ -193,9 +193,8 @@ export function AssessmentSettingsPanel({
         <SlidersHorizontal className="mt-0.5 h-3 w-3 shrink-0" />
         <span>
           이 값들은 <span className="text-paper">표준으로 정해진 수치가 아닙니다.</span>{" "}
-          KOSHA 위험성평가 지침도 빈도를 3단계로 나누라고만 규정하고 경계는 사업장
-          재량으로 둡니다. 과거 1~2년 자기 사업장 데이터로 분포를 확인한 뒤 산업안전보건
-          위원회 심의를 거쳐 정하고, 운영하며 조정하는 것이 바람직합니다.
+          과거 1~2년 자기 사업장 데이터로 분포를 확인한 뒤 산업안전보건위원회 심의를
+          거쳐 정하고, 운영하며 조정하는 것이 바람직합니다.
         </span>
       </p>
     </div>
