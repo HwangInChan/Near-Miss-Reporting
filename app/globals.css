@@ -43,23 +43,43 @@ body {
    브라우저의 "대상: PDF로 저장"을 고르면 그대로 PDF가 된다.
    ============================================================ */
 @media print {
-  /* 화면용 UI는 전부 숨기고 계획서만 남긴다 */
-  body > * {
-    display: none !important;
+  /*
+   * 화면 UI를 숨기는 방식이 중요하다.
+   * display:none 을 body 직계 자식에 걸면, 계획서가 그 자식의 하위에 있을 때
+   * 부모와 함께 사라져 백지가 인쇄된다(실제로 그런 버그가 있었다).
+   * visibility 로 전부 숨긴 뒤 계획서와 그 하위만 다시 보이게 하면
+   * 중첩 깊이와 무관하게 동작한다.
+   */
+  body * {
+    visibility: hidden;
   }
 
+  #improvement-plan-print,
+  #improvement-plan-print * {
+    visibility: visible;
+  }
+
+  /* visibility:hidden 요소도 자리는 차지하므로, 계획서를 페이지 좌상단에 붙인다 */
+  /* 화면에서는 -9999px 밖에 있던 것을 인쇄 시 제자리로 되돌린다 */
   #improvement-plan-print {
     display: block !important;
-    position: static;
+    position: absolute;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100%;
     background: #fff;
     color: #000;
     font-size: 10pt;
     line-height: 1.5;
   }
 
+  html,
   body {
     background: #fff !important;
     color: #000 !important;
+    margin: 0;
+    padding: 0;
+    height: auto;
   }
 
   @page {

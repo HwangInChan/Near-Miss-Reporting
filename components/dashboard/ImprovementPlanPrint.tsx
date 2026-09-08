@@ -30,7 +30,14 @@ export function ImprovementPlanPrint({
   const highCount = priorities.filter((p) => p.grade === "높음").length;
 
   return (
-    <div id="improvement-plan-print" className="hidden">
+    // display:none 대신 화면 밖으로 밀어낸다.
+    // display:none 이면 브라우저가 레이아웃을 계산하지 않아 인쇄 시 깨질 수 있고,
+    // 스크린리더에서도 아예 접근 불가가 된다. 인쇄용 CSS가 다시 제자리로 되돌린다.
+    <div
+      id="improvement-plan-print"
+      aria-hidden="true"
+      className="pointer-events-none absolute -left-[9999px] top-0 w-[210mm]"
+    >
       <header>
         <h1>아차사고 기반 위험성평가 개선계획서</h1>
         <table className="meta">
